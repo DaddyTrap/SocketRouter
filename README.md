@@ -2,6 +2,23 @@
 
 基于Socket来进行虚拟路由
 
+## 结点配置文件
+
+```plain
+{
+  "node_id": Number,
+  "ip": "$ip",
+  "port": "$port",
+  "topo": {
+    "$node_id": {
+      "real_ip": "$ip",
+      "real_port": "$port",
+      "cost": Number
+    }
+  }
+}
+```
+
 ## 协议
 
 换行符使用 `\n` 而非 `\r\n`
