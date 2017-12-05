@@ -21,7 +21,7 @@ fh.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.ERROR)
 # create formatter and add it to the handlers
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('[%(filename)s:%(lineno)s - %(funcName)s()] %(asctime)s - %(name)s - %(levelname)s - %(message)s')
 fh.setFormatter(formatter)
 ch.setFormatter(formatter)
 # add the handlers to the route_node_logger
@@ -41,7 +41,7 @@ class BaseRouteNode:
     ROUTE_LS = "LS"
     ROUTE_DV = "DV"
 
-    TIMEOUT = None
+    TIMEOUT = 10
     BUFFER_SIZE = 1024 * 1024 * 10
     SEQ_LIFETIME = 60
 
@@ -76,8 +76,9 @@ class BaseRouteNode:
     @staticmethod
     def raw_to_obj(raw_proto_data):
         text = raw_proto_data.decode('utf-8', 'ignore')
+        
         # for better performance
-        text_io = io.StringIO()
+        text_io = io.StringIO(text)
         
         src_id = None
         dst_id = None
@@ -106,7 +107,7 @@ class BaseRouteNode:
             data_begin += len(line)
             split_res = line.split(' ')
             packet_type = split_res[0]
-            data_type = split_res[1]
+            data_type = split_res[1][:-1] # cut '\n'
             # DATA
             data = raw_proto_data[data_begin:]
         except Exception as e:
@@ -168,6 +169,7 @@ DST_ID {} {}
     # ROUTE -> route_obj_handler
     # raw is for forwarding
     def forward_obj(self, obj, raw):
+        route_node_logger.debug("Got packet from {}".format(obj['src_id']))
         if obj['dst_id'] == -1 or obj['dst_id'] == self.node_id:
             # broadcast or self's
             if obj['dst_id'] == -1:
@@ -208,7 +210,7 @@ DST_ID {} {}
 
     def thread_func(self):
         inputs = [self.recv_sock]
-        outputs = [self.send_sock]
+        outputs = []
         
         while self.running:
             route_node_logger.debug("Waiting for next event...")
@@ -221,15 +223,15 @@ DST_ID {} {}
                     obj = BaseRouteNode.raw_to_obj(raw)
                     self.forward_obj(obj, raw)
 
-            for s in writable:
-                if s is self.send_sock:
-                    while not self.send_queue.empty():
-                        try:
-                            raw_data, addr = self.send_queue.get_nowait()
-                        except queue.Empty:
-                            route_node_logger.debug('send_queue empty')
-                        else:
-                            s.sendto(raw_data, addr)
+            # for s in writable:
+            #     if s is self.send_sock:
+            #         while not self.send_queue.empty():
+            #             try:
+            #                 raw_data, addr = self.send_queue.get_nowait()
+            #             except queue.Empty:
+            #                 route_node_logger.debug('send_queue empty')
+            #             else:
+            #                 s.sendto(raw_data, addr)
 
             for s in exceptional:
                 route_node_logger.error("Exception on {}".format(s.getpeername()))
@@ -237,7 +239,8 @@ DST_ID {} {}
     def start(self):
         # start thread to select socket
         self.running = True
-        threading.Thread(target=self.thread_func).start()
+        self.select_thread = threading.Thread(target=self.thread_func)
+        self.select_thread.start()
 
     def stop(self):
         self.running = False
@@ -265,7 +268,8 @@ DST_ID {} {}
         else:
             next_node_id = self.forward_table[dst_node_id]
             msg_tuple = (raw_data, self.id_to_addr[next_node_id])
-            self.send_queue.put(msg_tuple)
+            # self.send_queue.put(msg_tuple)
+            self.send_sock.sendto(msg_tuple[0], msg_tuple[1])
         
     def route_obj_handler(self, route_obj):
         # Should be override
