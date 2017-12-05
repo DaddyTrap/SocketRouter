@@ -240,8 +240,8 @@ DST_ID {} {}
         self.running = False
 
     # packet: {
-    #     "packet_type": RouteNode.PACKET_DATA,
-    #     "data_type": RouteNode.DATA_TXT,
+    #     "packet_type": BaseRouteNode.PACKET_DATA,
+    #     "data_type": BaseRouteNode.DATA_TXT,
     #     "data": "Hello example txt"
     # }
     # dst_node_id: Destination node id
@@ -298,6 +298,23 @@ class LSRouteNode(BaseRouteNode):
         if updated:
             # TODO: Use algorithm to calculate new cost_table and forward_table
             pass
+    
+    def broadcast_self_info(self):
+        self_info = {}
+        for k in self.cost_table:
+            if k in self.neighbors:
+                self_info[k] = self.cost_table[k]
+        data = BaseRouteNode.route_obj_to_data(self_info)
+        packet = {
+            "packet_type": BaseRouteNode.PACKET_ROUTE,
+            "data_type": "LS",
+            "data": data
+        }
+        self.send(packet, -1)
+
+    def start(self):
+        BaseRouteNode.start(self)
+        self.broadcast_self_info()
 
 class DVRouteNode(BaseRouteNode):
 
