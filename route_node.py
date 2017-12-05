@@ -62,7 +62,7 @@ class BaseRouteNode:
         with open(node_file) as f:
             obj = json.load(f)
         self.node_id = obj['node_id']
-        self.send_sock.bind((obj['ip'], obj['port']))
+        # self.send_sock.bind((obj['ip'], obj['port']))
         self.recv_sock.bind((obj['ip'], obj['port']))
         for k, v in obj['topo'].items():
             self.cost_table[k] = v['cost']
@@ -156,7 +156,7 @@ DST_ID {} {}
     @staticmethod
     def route_obj_to_data(route_obj):
         ret = ''
-        for k, v in route_obj:
+        for k, v in route_obj.items():
             ret += '{} {}\n'.format(k, v)
         return ret.encode()
 
@@ -278,8 +278,8 @@ class LSRouteNode(BaseRouteNode):
             self.node_id: obj['topo']
         }
         for k in self.topo[self.node_id]:
-            del self.topo[k]['real_ip']
-            del self.topo[k]['real_port']
+            del self.topo[self.node_id][k]['real_ip']
+            del self.topo[self.node_id][k]['real_port']
 
     def route_obj_handler(self, route_obj):
         if route_obj['packet_type'] != 'LS':
@@ -292,7 +292,7 @@ class LSRouteNode(BaseRouteNode):
             old_info = self.topo[route_obj['src_id']]
             intersection = set(old_info.items()) & set(new_info.items())
             if len(intersection) > 0:
-                route_obj['src_id'] = new_info
+                self.topo[route_obj['src_id']] = new_info
                 updated = True
 
         if updated:
@@ -301,6 +301,7 @@ class LSRouteNode(BaseRouteNode):
     
     def broadcast_self_info(self):
         self_info = {}
+        # only send neighbor info
         for k in self.cost_table:
             if k in self.neighbors:
                 self_info[k] = self.cost_table[k]

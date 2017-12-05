@@ -8,11 +8,11 @@
 {
   "node_id": Number,
   "ip": "$ip",
-  "port": "$port",
+  "port": $port,
   "topo": {
     "$node_id": {
       "real_ip": "$ip",
-      "real_port": "$port",
+      "real_port": $port,
       "cost": Number
     }
   }
