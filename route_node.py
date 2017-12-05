@@ -38,6 +38,8 @@ class BaseRouteNode:
     DATA_TXT = "TXT"
     DATA_JPEG = "JPEG"
     DATA_PNG = "PNG"
+    ROUTE_LS = "LS"
+    ROUTE_DV = "DV"
 
     TIMEOUT = None
     BUFFER_SIZE = 1024 * 1024 * 10
@@ -65,10 +67,11 @@ class BaseRouteNode:
         # self.send_sock.bind((obj['ip'], obj['port']))
         self.recv_sock.bind((obj['ip'], obj['port']))
         for k, v in obj['topo'].items():
-            self.cost_table[k] = v['cost']
-            self.forward_table[k] = k
-            self.id_to_addr[k] = (v['real_ip'], v['real_port'])
-            self.neighbors.append(k)
+            node_id = int(k)
+            self.cost_table[node_id] = v['cost']
+            self.forward_table[node_id] = node_id
+            self.id_to_addr[node_id] = (v['real_ip'], v['real_port'])
+            self.neighbors.append(node_id)
 
     @staticmethod
     def raw_to_obj(raw_proto_data):
@@ -270,6 +273,8 @@ DST_ID {} {}
 
 class LSRouteNode(BaseRouteNode):
 
+    BROADCAST_INFO_CD = 10
+
     def __init__(self, node_file, obj_handler, *args, **kwargs):
         BaseRouteNode.__init__(self, node_file, obj_handler, *args, **kwargs)
         with open(node_file) as f:
@@ -280,6 +285,8 @@ class LSRouteNode(BaseRouteNode):
         for k in self.topo[self.node_id]:
             del self.topo[self.node_id][k]['real_ip']
             del self.topo[self.node_id][k]['real_port']
+
+        self.last_broadcast_time = time.time()
 
     def route_obj_handler(self, route_obj):
         if route_obj['packet_type'] != 'LS':
@@ -295,9 +302,12 @@ class LSRouteNode(BaseRouteNode):
                 self.topo[route_obj['src_id']] = new_info
                 updated = True
 
+        # broadcast self info
+        if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
+            self.broadcast_self_info()
+
         if updated:
-            # TODO: Use algorithm to calculate new cost_table and forward_table
-            pass
+            self.cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.forward_table)
     
     def broadcast_self_info(self):
         self_info = {}
@@ -308,7 +318,7 @@ class LSRouteNode(BaseRouteNode):
         data = BaseRouteNode.route_obj_to_data(self_info)
         packet = {
             "packet_type": BaseRouteNode.PACKET_ROUTE,
-            "data_type": "LS",
+            "data_type": BaseRouteNode.ROUTE_LS,
             "data": data
         }
         self.send(packet, -1)
@@ -317,7 +327,66 @@ class LSRouteNode(BaseRouteNode):
         BaseRouteNode.start(self)
         self.broadcast_self_info()
 
+    @staticmethod
+    def ls_algo(source_node_id, topo, forward_table):
+        if len(topo) == 0:
+            return
+
+        if source_node_id in topo:
+            pass
+        else:
+            return
+        N_ = set()
+        N_.add(source_node_id)
+        D = {}
+        p = {}
+        nodes = set()
+        for key, val in topo.items():
+            for k, v in val.items():
+                nodes.add(key)
+                nodes.add(k)
+        for n in nodes:
+            if n in topo[source_node_id]:
+                D[n] = topo[source_node_id][n]
+                p[n] = source_node_id
+            else:
+                D[n] = sys.maxsize
+        D[source_node_id] = 0
+        while len(N_) != len(nodes):
+            tmp_list = sorted(D.items(), key=lambda asd: asd[1])
+            for k, v in tmp_list:
+                if k not in N_:
+                    N_.add(k)
+                    if k in topo:
+                        for key, val in topo[k].items():
+                            if (topo[k][key] + D[k] < D[key]):
+                                p[key] = k
+                                D[key] = topo[k][key] + D[k]
+                    break
+        for k, v in p.items():
+            if v == source_node_id:
+                tk = k
+                last = v
+                while tk != last:
+                    last = tk
+                    forward_table[tk] = k
+                    for key, val in p.items():
+                        if val == tk:
+                            tk = key
+                            break
+        return D
+
 class DVRouteNode(BaseRouteNode):
+
+    @staticmethod
+    def dv_algo(other_node_id, other_cost_table, source_cost_table, forward_table):
+        changeFlag = False
+        for k,v in other_cost_table.items():
+            if k not in source_cost_table or source_cost_table[k] > source_cost_table[other_node_id] + other_cost_table[k]:
+                source_cost_table[k] = source_cost_table[other_node_id] + other_cost_table[k]
+                forward_table[k] = other_node_id
+                changeFlag = True
+        return changeFlag
 
     def __init__(self, node_file, obj_handler, *args, **kwargs):
         BaseRouteNode.__init__(self, node_file, obj_handler, *args, **kwargs)
@@ -326,5 +395,14 @@ class DVRouteNode(BaseRouteNode):
         if route_obj['packet_type'] != 'DV':
             route_node_logger.warn("Wrong packet_type for this node")
             return
-        new_info = BaseRouteNode.data_to_route_obj(route_obj['data'])
-        # TODO: Use algorithm to calculate new cost_table and forward_table
+        other_info = BaseRouteNode.data_to_route_obj(route_obj['data'])
+        changed = DVRouteNode.dv_algo(route_obj['src_id'], other_info, self.cost_table, self.forward_table)
+        if changed:
+            # send new cost table
+            packet = {
+                "packet_type": BaseRouteNode.PACKET_ROUTE,
+                "data_type": BaseRouteNode.ROUTE_DV,
+                "data": DVRouteNode.route_obj_to_data(self.cost_table)
+            }
+            for i in self.neighbors:
+                self.send(packet, i)

@@ -1,4 +1,3 @@
 .vscode/
-node_conf.json
 __pycache__/
 *.log
