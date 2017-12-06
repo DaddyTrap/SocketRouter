@@ -475,6 +475,11 @@ class DVRouteNode(BaseRouteNode):
     @staticmethod
     def dv_algo(other_node_id, other_cost_table, source_cost_table, forward_table):
         changeFlag = False
+        for k,v in [i for i in forward_table.items()]:
+            if v == other_node_id and k not in other_cost_table:
+                source_cost_table.pop(k)
+                forward_table.pop(k)
+
         for k,v in other_cost_table.items():
             if k not in source_cost_table or source_cost_table[k] > source_cost_table[other_node_id] + other_cost_table[k]:
                 source_cost_table[k] = source_cost_table[other_node_id] + other_cost_table[k]
