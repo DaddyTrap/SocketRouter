@@ -25,8 +25,6 @@ if __name__ == "__main__":
     node1.stop()
     node2.stop()
 
-    node1.select_thread.join()
-    node2.select_thread.join()
     del node1
     del node2
 

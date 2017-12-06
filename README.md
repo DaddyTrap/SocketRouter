@@ -28,7 +28,7 @@
 ```plain
 SRC_ID $源结点NODE_ID
 DST_ID $目标结点NODE_ID，-1表示广播 $序列号，如果是广播需要序列号进行受控洪泛
-$数据包类型(DATA/ROUTE) $携带数据类型(TXT/JPEG/PNG/...)/$使用的算法模式(LS/DV)
+$数据包类型(DATA/ROUTE/BEAT) $携带数据类型(TXT/JPEG/PNG/...)/$使用的算法模式(LS/DV)/$心跳(BEAT)
 $数据，支持二进制
 ```
 
@@ -76,4 +76,14 @@ ROUTE DV
 $NODE_ID_0 $LINK_COST_0
 $NDOE_ID_1 $LINK_COST_1
 ...
+```
+
+### BEAT类型
+
+广播心跳信息：
+```plain
+SRC_ID 0
+DST_ID -1 123
+BEAT BEAT
+ALIVE
 ```
