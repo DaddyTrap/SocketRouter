@@ -12,22 +12,6 @@ import logging
 import collections
 import traceback
 
-# create logger with 'RouteNode'
-route_node_logger = logging.getLogger('RouteNode')
-route_node_logger.setLevel(logging.DEBUG)
-# create file handler which logs even debug messages
-fh = logging.FileHandler('route_node.log')
-fh.setLevel(logging.DEBUG)
-# create console handler with a higher log level
-ch = logging.StreamHandler()
-ch.setLevel(logging.ERROR)
-# create formatter and add it to the handlers
-formatter = logging.Formatter('[%(filename)s:%(lineno)s - %(funcName)s()] %(asctime)s - %(name)s - %(levelname)s - %(message)s')
-fh.setFormatter(formatter)
-ch.setFormatter(formatter)
-# add the handlers to the route_node_logger
-route_node_logger.addHandler(fh)
-route_node_logger.addHandler(ch)
 
 class BaseRouteNode:
 
@@ -52,7 +36,27 @@ class BaseRouteNode:
     SEQ_LIFETIME = 60
     BEAT_TIME = 30
 
-    def __init__(self, node_file, obj_handler, *args, **kwargs):
+    def build_logger(self, name):
+        # create logger with 'RouteNode'
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.DEBUG)
+        # create file handler which logs even debug messages
+        fh = logging.FileHandler('{}.log'.format(name))
+        fh.setLevel(logging.DEBUG)
+        # create console handler with a higher log level
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.ERROR)
+        # create formatter and add it to the handlers
+        formatter = logging.Formatter('[%(filename)s:%(lineno)s - %(funcName)s()] %(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        fh.setFormatter(formatter)
+        ch.setFormatter(formatter)
+        # add the handlers to the self.logger
+        self.logger.addHandler(fh)
+        self.logger.addHandler(ch)
+
+    def __init__(self, node_file, obj_handler, name='RouteNode', *args, **kwargs):
+        self.build_logger(name)
+
         self.forward_table = {}
         self.cost_table = {}
         self.id_to_addr = {}
@@ -68,8 +72,12 @@ class BaseRouteNode:
         self.recved_id_seq_tuples = []
         self.down_check_table = {}
 
-        with open(node_file) as f:
-            obj = json.load(f)
+        if isinstance(node_file, dict):
+            obj = node_file
+        else:
+            with open(node_file) as f:
+                obj = json.load(f)
+
         self.node_id = int(obj['node_id'])
         # self.send_sock.bind((obj['ip'], obj['port']))
         self.recv_sock.bind((obj['ip'], obj['port']))
@@ -85,8 +93,7 @@ class BaseRouteNode:
                 "downed": False
             }
 
-    @staticmethod
-    def raw_to_obj(raw_proto_data):
+    def raw_to_obj(self, raw_proto_data):
         text = raw_proto_data.decode('utf-8', 'ignore')
         
         # for better performance
@@ -123,7 +130,7 @@ class BaseRouteNode:
             # DATA
             data = raw_proto_data[data_begin:]
         except Exception as e:
-            route_node_logger.error(e)
+            self.logger.error(e)
 
         ret = {
             "src_id": src_id,
@@ -153,8 +160,7 @@ DST_ID {} {}
         ret += data
         return ret
 
-    @staticmethod
-    def data_to_route_obj(data):
+    def data_to_route_obj(self, data):
         ret = {}
         try:
             text = data.decode()
@@ -167,8 +173,8 @@ DST_ID {} {}
                 link_cost = int(split_res[1])
                 ret[node_id] = link_cost
         except Exception as e:
-            route_node_logger.error("Exception [{}] occurred!! Will stop parsing.".format(str(e)))
-            route_node_logger.error("\n{}".format(traceback.format_exc()))
+            self.logger.error("Exception [{}] occurred!! Will stop parsing.".format(str(e)))
+            self.logger.error("\n{}".format(traceback.format_exc()))
             return None
         return ret
 
@@ -184,7 +190,7 @@ DST_ID {} {}
     # ROUTE -> route_obj_handler
     # raw is for forwarding
     def forward_obj(self, obj, raw):
-        route_node_logger.debug("Got packet from {}".format(obj['src_id']))
+        self.logger.debug("Got packet from {}".format(obj['src_id']))
         src_id = obj['src_id']
         # only neighbors in the down_check_table
         if src_id in self.down_check_table.keys():
@@ -233,7 +239,7 @@ DST_ID {} {}
                     self.recved_id_seq_tuples.append(id_seq_tuple)
 
                 if not will_recv:
-                    route_node_logger.debug("Drop duplicate broadcast")
+                    self.logger.debug("Drop duplicate broadcast")
                     return
 
                 # broadcast it
@@ -249,7 +255,7 @@ DST_ID {} {}
             elif obj['packet_type'] == BaseRouteNode.PACKET_BEAT:
                 pass
             else:
-                route_node_logger.warn("Unknown packet type received")
+                self.logger.warn("Unknown packet type received")
         elif obj['dst_id'] != self.node_id:
             # not self's, forward it
             self.raw_send(raw, obj['dst_id'])
@@ -259,15 +265,15 @@ DST_ID {} {}
         outputs = []
         
         while self.running:
-            route_node_logger.debug("Waiting for next event...")
+            self.logger.debug("Waiting for next event...")
             readable, writable, exceptional = select.select(inputs, outputs, inputs, self.TIMEOUT)
             if not (readable or writable or exceptional):
-                route_node_logger.warn("TIME OUT!!")
+                self.logger.warn("TIME OUT!!")
             for s in readable:
                 if s is self.recv_sock:
                     raw, addr = s.recvfrom(self.BUFFER_SIZE)
-                    route_node_logger.debug("Recved raw from {}:\n{}".format(addr, raw))
-                    obj = BaseRouteNode.raw_to_obj(raw)
+                    self.logger.debug("Recved raw from {}:\n{}".format(addr, raw))
+                    obj = self.raw_to_obj(raw)
                     self.forward_obj(obj, raw)
 
             # for s in writable:
@@ -276,12 +282,12 @@ DST_ID {} {}
             #             try:
             #                 raw_data, addr = self.send_queue.get_nowait()
             #             except queue.Empty:
-            #                 route_node_logger.debug('send_queue empty')
+            #                 self.logger.debug('send_queue empty')
             #             else:
             #                 s.sendto(raw_data, addr)
 
             for s in exceptional:
-                route_node_logger.error("Exception on {}".format(s.getpeername()))
+                self.logger.error("Exception on {}".format(s.getpeername()))
 
     def beat_thread_func(self):
         count = 0
@@ -327,7 +333,7 @@ DST_ID {} {}
 
     def raw_send(self, raw_data, dst_node_id):
         if not dst_node_id in self.forward_table and dst_node_id != -1:
-            route_node_logger.warn("No such id in forward_table yet")
+            self.logger.warn("No such id in forward_table yet")
             return 0
         if dst_node_id == -1:
             for node_id in self.neighbors:
@@ -351,10 +357,13 @@ class LSRouteNode(BaseRouteNode):
 
     BROADCAST_INFO_CD = 10
 
-    def __init__(self, node_file, obj_handler, *args, **kwargs):
-        BaseRouteNode.__init__(self, node_file, obj_handler, *args, **kwargs)
-        with open(node_file) as f:
-            obj = json.load(f)
+    def __init__(self, node_file, obj_handler, name='RouteNode', *args, **kwargs):
+        BaseRouteNode.__init__(self, node_file, obj_handler, name, *args, **kwargs)
+        if isinstance(node_file, dict):
+            obj = node_file
+        else:
+            with open(node_file) as f:
+                obj = json.load(f)
         topo = obj['topo']
         for k, v in [i for i in topo.items()]:
             topo[int(k)] = v
@@ -370,17 +379,17 @@ class LSRouteNode(BaseRouteNode):
 
     def route_obj_handler(self, route_obj):
         if route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
-            route_node_logger.warn("Wrong data_type for this node")
+            self.logger.warn("Wrong data_type for this node")
             return
-        route_node_logger.debug("Got route_obj:\n{}".format(route_obj))
-        new_info = BaseRouteNode.data_to_route_obj(route_obj['data'])
+        self.logger.debug("Got route_obj:\n{}".format(route_obj))
+        new_info = self.data_to_route_obj(route_obj['data'])
 
         updated = False        
         if route_obj['src_id'] in self.topo:
             old_info = self.topo[route_obj['src_id']]
             for k, v in old_info.items():
                 old_info[k] = v['cost']
-            route_node_logger.debug(old_info)
+            self.logger.debug(old_info)
             intersection = set(old_info.items()) & set(new_info.items())
             if len(intersection) > 0:
                 self.topo[route_obj['src_id']] = new_info
@@ -392,10 +401,10 @@ class LSRouteNode(BaseRouteNode):
 
         if updated:
             self.cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.forward_table)
-            route_node_logger.debug("cost_table changed:\n{}".format(self.cost_table))
-            route_node_logger.debug("forward_table changed:\n{}".format(self.forward_table))
+            self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
+            self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
         else:
-            route_node_logger.debug("Nothing changed.")
+            self.logger.debug("Nothing changed.")
     
     def broadcast_self_info(self):
         self_info = {}
@@ -487,22 +496,22 @@ class DVRouteNode(BaseRouteNode):
                 changeFlag = True
         return changeFlag
 
-    def __init__(self, node_file, obj_handler, *args, **kwargs):
-        BaseRouteNode.__init__(self, node_file, obj_handler, *args, **kwargs)
+    def __init__(self, node_file, obj_handler, name='RouteNode', *args, **kwargs):
+        BaseRouteNode.__init__(self, node_file, obj_handler, name, *args, **kwargs)
 
     def route_obj_handler(self, route_obj):
         if route_obj['data_type'] != BaseRouteNode.ROUTE_DV:
-            route_node_logger.warn("Wrong data_type for this node")
+            self.logger.warn("Wrong data_type for this node")
             return
-        route_node_logger.debug("Got route_obj:\n{}".format(route_obj))
-        other_info = BaseRouteNode.data_to_route_obj(route_obj['data'])
+        self.logger.debug("Got route_obj:\n{}".format(route_obj))
+        other_info = self.data_to_route_obj(route_obj['data'])
         changed = DVRouteNode.dv_algo(route_obj['src_id'], other_info, self.cost_table, self.forward_table)
         if changed:
             self.send_new_cost_table()
-            route_node_logger.debug("cost_table changed:\n{}".format(self.cost_table))
-            route_node_logger.debug("forward_table changed:\n{}".format(self.forward_table))
+            self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
+            self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
         else:
-            route_node_logger.debug("Nothing changed.")
+            self.logger.debug("Nothing changed.")
 
     def send_new_cost_table(self):
         # send new cost table
