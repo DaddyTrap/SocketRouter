@@ -518,10 +518,16 @@ class DVRouteNode(BaseRouteNode):
         packet = {
             "packet_type": BaseRouteNode.PACKET_ROUTE,
             "data_type": BaseRouteNode.ROUTE_DV,
-            "data": DVRouteNode.route_obj_to_data(self.cost_table)
+            "data": None
         }
         for i in self.neighbors:
-            self.send(packet, i)
+            poison_reverse_packet = dict(packet)
+            poison_reverse_route_obj = dict(self.cost_table)
+            for k, v in self.forward_table.items():
+                if v == i:
+                    poison_reverse_route_obj[k] = sys.maxsize
+            poison_reverse_packet['data'] = DVRouteNode.route_obj_to_data(poison_reverse_route_obj)
+            self.send(poison_reverse_packet, i)
 
     def on_nodes_down(self, node_ids):
         self.send_new_cost_table()
