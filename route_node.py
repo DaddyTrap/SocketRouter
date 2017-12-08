@@ -28,6 +28,7 @@ class BaseRouteNode:
 
     ROUTE_LS = "LS"
     ROUTE_DV = "DV"
+    ROUTE_C_LS = 'CLS' # for central route
 
     BEAT_BEAT = "BEAT"
 
@@ -531,3 +532,148 @@ class DVRouteNode(BaseRouteNode):
 
     def on_nodes_down(self, node_ids):
         self.send_new_cost_table()
+
+class CentralControlNode(LSRouteNode):
+    def __init__(self, node_file, obj_handler, name='RouteNode', *args, **kwargs):
+        LSRouteNode.__init__(self, node_file, obj_handler, name, *args, **kwargs)
+        self.control_forward_table = {}
+        self.control_cost_table = {}
+    def route_obj_handler(self, route_obj):
+        if route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
+            self.logger.warn("Wrong data_type for this node")
+            return
+        self.logger.debug("Got route_obj:\n{}".format(route_obj))
+        new_info = self.data_to_route_obj(route_obj['data'])
+
+        updated = False        
+        if route_obj['src_id'] in self.topo:
+            old_info = self.topo[route_obj['src_id']]
+            for k, v in old_info.items():
+                old_info[k] = v['cost']
+            self.logger.debug(old_info)
+            intersection = set(old_info.items()) & set(new_info.items())
+            if len(intersection) > 0:
+                self.topo[route_obj['src_id']] = new_info
+                updated = True
+
+        if updated == True:
+
+        broadcast self info
+        if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
+            self.broadcast_self_info()
+
+        if updated:
+            self.control_cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.control_forward_table)
+            self.forward_table = self.control_forward_table[self.node_id]
+            self.cost_table = self.control_cost_table[node_id]
+            self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
+            self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
+            self.broadcast_control_info()
+        else:
+            self.logger.debug("Nothing changed.")
+
+
+    def broadcast_control_info(self):
+        # only send neighbor info
+        data = BaseRouteNode.route_obj_to_data(self.control_forward_table)
+        packet = {
+            "packet_type": BaseRouteNode.PACKET_ROUTE,
+            "data_type": BaseRouteNode.ROUTE_C_LS,
+            "data": data
+        }
+        self.send(packet, -1)
+    
+    @staticmethod
+    def central_ls_algo(source_node_id, topo, forward_table):
+        if len(topo) == 0:
+            return
+
+        nodes = set()
+        for key, val in topo.items():
+            for k, v in val.items():
+                nodes.add(key)
+                nodes.add(k)
+        D = {}
+        p = {}
+        for start_node_id in nodes:
+            if start_node_id in topo:
+                pass
+            else:
+                break
+            D[start_node_id]={}
+            p[start_node_id]={}
+            forward_table[start_node_id] = {}
+            N_ = set()
+            N_.add(start_node_id)
+
+
+            for n in nodes:
+                if n in topo[start_node_id]:
+                    D[start_node_id][n] = topo[start_node_id][n]
+                    p[start_node_id][n] = start_node_id
+                else:
+                    D[n] = sys.maxsize
+            D[start_node_id] = 0
+            while len(N_) != len(nodes):
+                tmp_list = sorted(D.items(), key=lambda asd: asd[1])
+                for k, v in tmp_list:
+                    if k not in N_:
+                        N_.add(k)
+                        if k in topo:
+                            for key, val in topo[k].items():
+                                if (topo[k][key] + D[k] < D[key]):
+                                    p[key] = k
+                                    D[key] = topo[k][key] + D[k]
+                        break
+            for k, v in p.items():
+                if v == start_node_id:
+                    tk = k
+                    last = v
+                    while tk != last:
+                        last = tk
+                        forward_table[start_node_id][tk] = k
+                        for key, val in p.items():
+                            if val == tk:
+                                tk = key
+                                break
+        return D
+
+
+class CentralNormalNode(LSRouteNode):
+    def __init__(self, node_file, obj_handler, name='RouteNode', *args, **kwargs):
+        LSRouteNode.__init__(self, node_file, obj_handler, name, *args, **kwargs)
+    
+    def route_obj_handler(self,route_obj):
+        if route_obj['data_type'] == BaseRouteNode.ROUTE_C_LS:
+            new_forward = self.data_to_route_obj(route_obj['data'])
+            if self.node_id in new_forward:
+                self.forward_table = new_forward[node_id]
+                self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
+            return
+        # elif route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
+        #     self.logger.warn("Wrong data_type for this node")
+        #     return
+        # self.logger.debug("Got route_obj:\n{}".format(route_obj))
+        # new_info = self.data_to_route_obj(route_obj['data'])
+
+        # updated = False        
+        # if route_obj['src_id'] in self.topo:
+        #     old_info = self.topo[route_obj['src_id']]
+        #     for k, v in old_info.items():
+        #         old_info[k] = v['cost']
+        #     self.logger.debug(old_info)
+        #     intersection = set(old_info.items()) & set(new_info.items())
+        #     if len(intersection) > 0:
+        #         self.topo[route_obj['src_id']] = new_info
+        #         updated = True
+
+        # broadcast self info
+        if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
+            self.broadcast_self_info()
+
+        # if updated:
+        #     self.cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.forward_table)
+        #     self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
+        #     self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
+        # else:
+        #     self.logger.debug("Nothing changed.")
