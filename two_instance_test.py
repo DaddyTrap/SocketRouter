@@ -4,8 +4,8 @@ import time
 def handler(obj):
     print(obj)
 
-def change():
-    print("CHANGED!!")
+def change(node_instance):
+    print(node_instance.name + " DATA CHANGED!!")
 
 if __name__ == "__main__":
     node1 = route_node.LSRouteNode('tests/node_conf_1.json', obj_handler=handler, data_change_handler=change, name='node1')

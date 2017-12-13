@@ -58,6 +58,7 @@ class BaseRouteNode:
     def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
         self.build_logger(name)
 
+        self.name = name
         self.forward_table = {}
         self.cost_table = {}
         self.id_to_addr = {}
@@ -96,7 +97,7 @@ class BaseRouteNode:
                 "downed": False
             }
         if isinstance(self.data_change_handler, collections.Callable):
-            self.data_change_handler()
+            self.data_change_handler(self)
 
     def raw_to_obj(self, raw_proto_data):
         text = raw_proto_data.decode('utf-8', 'ignore')
@@ -210,7 +211,7 @@ DST_ID {} {}
                 self.forward_table[src_id] = src_id
                 
                 if isinstance(self.data_change_handler, collections.Callable):
-                    self.data_change_handler()
+                    self.data_change_handler(self)
 
             # check down
             down_nodes = []
@@ -224,7 +225,7 @@ DST_ID {} {}
                     del self.forward_table[k]
             
             if isinstance(self.data_change_handler, collections.Callable):
-                self.data_change_handler()
+                self.data_change_handler(self)
 
             if len(down_nodes) > 0:
                 self.on_nodes_down(k)
@@ -415,7 +416,7 @@ class LSRouteNode(BaseRouteNode):
             self.cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.forward_table)
             
             if isinstance(self.data_change_handler, collections.Callable):
-                self.data_change_handler()
+                self.data_change_handler(self)
             self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
             self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
         else:
@@ -527,7 +528,7 @@ class DVRouteNode(BaseRouteNode):
             self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
             
             if isinstance(self.data_change_handler, collections.Callable):
-                self.data_change_handler()
+                self.data_change_handler(self)
         else:
             self.logger.debug("Nothing changed.")
 
@@ -582,7 +583,7 @@ class CentralControlNode(LSRouteNode):
             self.cost_table = self.control_cost_table[self.node_id]
             
             if isinstance(self.data_change_handler, collections.Callable):
-                self.data_change_handler()
+                self.data_change_handler(self)
             self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
             self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
             self.broadcast_control_info()
