@@ -556,16 +556,13 @@ class CentralControlNode(LSRouteNode):
                 self.topo[route_obj['src_id']] = new_info
                 updated = True
 
-        if updated == True:
-
-        broadcast self info
         if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
             self.broadcast_self_info()
 
         if updated:
             self.control_cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.control_forward_table)
             self.forward_table = self.control_forward_table[self.node_id]
-            self.cost_table = self.control_cost_table[node_id]
+            self.cost_table = self.control_cost_table[self.node_id]
             self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
             self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
             self.broadcast_control_info()
@@ -647,7 +644,7 @@ class CentralNormalNode(LSRouteNode):
         if route_obj['data_type'] == BaseRouteNode.ROUTE_C_LS:
             new_forward = self.data_to_route_obj(route_obj['data'])
             if self.node_id in new_forward:
-                self.forward_table = new_forward[node_id]
+                self.forward_table = new_forward[self.node_id]
                 self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
             return
         # elif route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
