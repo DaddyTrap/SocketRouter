@@ -55,7 +55,7 @@ class BaseRouteNode:
         self.logger.addHandler(fh)
         self.logger.addHandler(ch)
 
-    def __init__(self, node_file, obj_handler, name='RouteNode', *args, **kwargs):
+    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
         self.build_logger(name)
 
         self.forward_table = {}
@@ -66,10 +66,12 @@ class BaseRouteNode:
         self.recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.broadcast_seq_num = random.randint(0, sys.maxsize)
         self.data_obj_handler = obj_handler
+        # called when [forward_table, cost_table] changed
+        self.data_change_handler = data_change_handler
 
         self.running = False
         self.broadcast_seq_num = 0
-        self.send_queue = queue.Queue()
+        # self.send_queue = queue.Queue()
         self.recved_id_seq_tuples = []
         self.down_check_table = {}
 
@@ -93,6 +95,8 @@ class BaseRouteNode:
                 "origin_cost": v['cost'],
                 "downed": False
             }
+        if isinstance(self.data_change_handler, collections.Callable):
+            self.data_change_handler()
 
     def raw_to_obj(self, raw_proto_data):
         text = raw_proto_data.decode('utf-8', 'ignore')
@@ -204,6 +208,9 @@ DST_ID {} {}
                 self.down_check_table[src_id]['downed'] = False
                 self.cost_table[src_id] = self.down_check_table[src_id]['origin_cost']
                 self.forward_table[src_id] = src_id
+                
+                if isinstance(self.data_change_handler, collections.Callable):
+                    self.data_change_handler()
 
             # check down
             down_nodes = []
@@ -215,6 +222,10 @@ DST_ID {} {}
                     self.down_check_table[k]['downed'] = True
                     del self.cost_table[k]
                     del self.forward_table[k]
+            
+            if isinstance(self.data_change_handler, collections.Callable):
+                self.data_change_handler()
+
             if len(down_nodes) > 0:
                 self.on_nodes_down(k)
 
@@ -358,8 +369,8 @@ class LSRouteNode(BaseRouteNode):
 
     BROADCAST_INFO_CD = 10
 
-    def __init__(self, node_file, obj_handler, name='RouteNode', *args, **kwargs):
-        BaseRouteNode.__init__(self, node_file, obj_handler, name, *args, **kwargs)
+    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
+        BaseRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
         if isinstance(node_file, dict):
             obj = node_file
         else:
@@ -402,6 +413,9 @@ class LSRouteNode(BaseRouteNode):
 
         if updated:
             self.cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.forward_table)
+            
+            if isinstance(self.data_change_handler, collections.Callable):
+                self.data_change_handler()
             self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
             self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
         else:
@@ -497,8 +511,8 @@ class DVRouteNode(BaseRouteNode):
                 changeFlag = True
         return changeFlag
 
-    def __init__(self, node_file, obj_handler, name='RouteNode', *args, **kwargs):
-        BaseRouteNode.__init__(self, node_file, obj_handler, name, *args, **kwargs)
+    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
+        BaseRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
 
     def route_obj_handler(self, route_obj):
         if route_obj['data_type'] != BaseRouteNode.ROUTE_DV:
@@ -511,6 +525,9 @@ class DVRouteNode(BaseRouteNode):
             self.send_new_cost_table()
             self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
             self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
+            
+            if isinstance(self.data_change_handler, collections.Callable):
+                self.data_change_handler()
         else:
             self.logger.debug("Nothing changed.")
 
@@ -534,8 +551,8 @@ class DVRouteNode(BaseRouteNode):
         self.send_new_cost_table()
 
 class CentralControlNode(LSRouteNode):
-    def __init__(self, node_file, obj_handler, name='RouteNode', *args, **kwargs):
-        LSRouteNode.__init__(self, node_file, obj_handler, name, *args, **kwargs)
+    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
+        LSRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
         self.control_forward_table = {}
         self.control_cost_table = {}
     def route_obj_handler(self, route_obj):
@@ -563,6 +580,9 @@ class CentralControlNode(LSRouteNode):
             self.control_cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.control_forward_table)
             self.forward_table = self.control_forward_table[self.node_id]
             self.cost_table = self.control_cost_table[self.node_id]
+            
+            if isinstance(self.data_change_handler, collections.Callable):
+                self.data_change_handler()
             self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
             self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
             self.broadcast_control_info()
@@ -637,8 +657,8 @@ class CentralControlNode(LSRouteNode):
 
 
 class CentralNormalNode(LSRouteNode):
-    def __init__(self, node_file, obj_handler, name='RouteNode', *args, **kwargs):
-        LSRouteNode.__init__(self, node_file, obj_handler, name, *args, **kwargs)
+    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
+        LSRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
     
     def route_obj_handler(self,route_obj):
         if route_obj['data_type'] == BaseRouteNode.ROUTE_C_LS:
