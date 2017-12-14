@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QApplication , QMainWindow
 
 from routerui import *
 
+ 
 if __name__ == '__main__':
 
     class CoperQt(QtWidgets.QMainWindow,Ui_MainWindow):#创建一个Qt对象
@@ -20,7 +21,7 @@ if __name__ == '__main__':
     if __name__ == "__main__":
         app = QtWidgets.QApplication(sys.argv)
         window = CoperQt()#创建QT对象
-        window.setTrafficText('Hello World')
+        # window.setTrafficText('Hello World')
         window.show()#QT对象显示
         sys.exit(app.exec_())
 

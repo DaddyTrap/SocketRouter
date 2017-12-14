@@ -7,16 +7,27 @@
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+import sys
+sys.path.append("..")
+import route_node
+import json
 class Ui_MainWindow(object):
+    PACKET = {
+        "packet_type": route_node.BaseRouteNode.PACKET_DATA,
+        "data_type": route_node.BaseRouteNode.DATA_TXT,
+        "data": b'Hey guy!'
+    }
+
+
+
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(472, 440)
+        MainWindow.resize(482, 635)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
-        self.SendData = QtWidgets.QTextEdit(self.centralwidget)
-        self.SendData.setGeometry(QtCore.QRect(20, 10, 171, 31))
-        self.SendData.setObjectName("SendData")
+        self.Data = QtWidgets.QTextEdit(self.centralwidget)
+        self.Data.setGeometry(QtCore.QRect(20, 10, 171, 31))
+        self.Data.setObjectName("Data")
         self.TargetAddress = QtWidgets.QTextEdit(self.centralwidget)
         self.TargetAddress.setGeometry(QtCore.QRect(280, 10, 171, 31))
         self.TargetAddress.setObjectName("TargetAddress")
@@ -39,10 +50,10 @@ class Ui_MainWindow(object):
         self.ForwardTableTitle.setGeometry(QtCore.QRect(330, 90, 101, 16))
         self.ForwardTableTitle.setObjectName("ForwardTableTitle")
         self.LsAlgoBtn = QtWidgets.QPushButton(self.centralwidget)
-        self.LsAlgoBtn.setGeometry(QtCore.QRect(20, 240, 101, 21))
+        self.LsAlgoBtn.setGeometry(QtCore.QRect(10, 560, 101, 21))
         self.LsAlgoBtn.setObjectName("LsAlgoBtn")
         self.DvAlgoBtn = QtWidgets.QPushButton(self.centralwidget)
-        self.DvAlgoBtn.setGeometry(QtCore.QRect(130, 240, 101, 21))
+        self.DvAlgoBtn.setGeometry(QtCore.QRect(130, 560, 101, 21))
         self.DvAlgoBtn.setObjectName("DvAlgoBtn")
         self.NodeIDTitle = QtWidgets.QLabel(self.centralwidget)
         self.NodeIDTitle.setGeometry(QtCore.QRect(380, 290, 41, 20))
@@ -62,6 +73,12 @@ class Ui_MainWindow(object):
         self.CentralNodeId = QtWidgets.QTextBrowser(self.centralwidget)
         self.CentralNodeId.setGeometry(QtCore.QRect(380, 360, 71, 31))
         self.CentralNodeId.setObjectName("CentralNodeId")
+        self.routeinit = QtWidgets.QTextEdit(self.centralwidget)
+        self.routeinit.setGeometry(QtCore.QRect(10, 440, 461, 111))
+        self.routeinit.setObjectName("routeinit")
+        self.StopNode = QtWidgets.QPushButton(self.centralwidget)
+        self.StopNode.setGeometry(QtCore.QRect(260, 560, 81, 23))
+        self.StopNode.setObjectName("StopNode")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 472, 23))
@@ -73,12 +90,14 @@ class Ui_MainWindow(object):
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
         self.menubar.addAction(self.menuRouter.menuAction())
-
         self.retranslateUi(MainWindow)
-        self.Send.clicked.connect(MainWindow.SendData)
-        self.LsAlgoBtn.clicked.connect(MainWindow.UseLs)
-        self.DvAlgoBtn.clicked.connect(MainWindow.UseDv)
+        self.DvAlgoBtn.clicked.connect(self.UseDv)
+        self.LsAlgoBtn.clicked.connect(self.UseLs)
+        self.StopNode.clicked.connect(self.NodeStop)
+        self.Send.clicked.connect(self.SendData)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        self.node = None
+        self.StopNode.setEnabled(False)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
@@ -87,35 +106,65 @@ class Ui_MainWindow(object):
         self.Send.setText(_translate("MainWindow", "Send"))
         self.CostTableTitle.setText(_translate("MainWindow", "Cost Table"))
         self.ForwardTableTitle.setText(_translate("MainWindow", "Forward Table"))
-        self.LsAlgoBtn.setText(_translate("MainWindow", "Use Ls Algo"))
-        self.DvAlgoBtn.setText(_translate("MainWindow", "Use Dv Algo"))
+        self.LsAlgoBtn.setText(_translate("MainWindow", "Create LSNode"))
+        self.DvAlgoBtn.setText(_translate("MainWindow", "Create DVNode"))
         self.NodeIDTitle.setText(_translate("MainWindow", "NodeID"))
-        self.TrafficlogTable.setText(_translate("MainWindow", "Traffic log"))
+        self.TrafficlogTable.setText(_translate("MainWindow", "log"))
         self.CentralNodeIdTitle.setText(_translate("MainWindow", "Central NodeID"))
+        self.StopNode.setText(_translate("MainWindow", "Stop Node"))
         self.menuRouter.setTitle(_translate("MainWindow", "Router"))
 
+    def change(self,node_instance):
+        self.CostTable.append(str(node_instance.cost_table)+'\n')
+        self.ForwardTable.append(str(node_instance.forward_table)+'\n')
 
-    def SendData(self, SendFunc):
-        data = self.SendData.toPlainText()
+    def handler(self,obj):
+        self.TrafficLog.append('rev packet')
+
+    def SendData(self):
+        data = self.Data.toPlainText()
         target = self.TargetAddress.toPlainText()
+        self.PACKET["data"] = data
+        self.node.send(self.PACKET, target)
+        self.TrafficLog.append('send data to %s' % (target))
 
     def UseLs(self):
-        pass
+        if self.node != None:
+            del self.node
+        try:
+            initinfo = json.loads(self.routeinit.toPlainText())
+        except:
+            self.TrafficLog.append("Please input info with json format\n")
+            return
+        self.LsAlgoBtn.setEnabled(False)
+        self.DvAlgoBtn.setEnabled(False)
+        self.StopNode.setEnabled(True)
+        self.routeinit.setReadOnly(True)
+
+        self.node = route_node.LSRouteNode(initinfo, obj_handler=self.handler, data_change_handler=self.change, name='node1')
+        self.NodeId.setText(str(self.node.node_id))
+        self.node.start()
+
 
     def UseDv(self):
-        pass
+        if self.node != None:
+            del self.node
+        try:
+            initinfo = json.loads(self.routeinit.toPlainText())
+        except:
+            self.TrafficLog.append("Please input info with json format\n")
+            return
+        self.DvAlgoBtn.setEnabled(False)
+        self.LsAlgoBtn.setEnabled(False)
+        self.StopNode.setEnabled(True)
+        self.routeinit.setReadOnly(True)
+        self.node =  route_node.DVRouteNode(initinfo, obj_handler=self.handler, data_change_handler=self.change, name='node1')
+        self.NodeId.setText(str(self.node.node_id))
+        self.node.start()
 
-    def UpdateTrafficText(self,text):
-        self.TrafficLog.append(text)
-
-    def printCostTable(self, text):
-        self.CostTable.setText(text)
-
-    def printForwardTable(self, text):
-        self.ForwardTable.setText(text)
-    
-    def setNodeId(self,text):
-        self.NodeId.setText(text)
-
-    def setCentralNodeId(self, text):
-        self.CentralNodeId.setText(text)
+    def NodeStop(self):
+        self.routeinit.setReadOnly(False)
+        self.StopNode.setEnabled(False)
+        self.DvAlgoBtn.setEnabled(True)
+        self.LsAlgoBtn.setEnabled(True)
+        self.node.stop()

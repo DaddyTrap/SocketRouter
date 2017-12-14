@@ -32,7 +32,7 @@ class BaseRouteNode:
 
     BEAT_BEAT = "BEAT"
 
-    TIMEOUT = 10
+    TIMEOUT = 2
     BUFFER_SIZE = 1024 * 1024 * 10
     SEQ_LIFETIME = 60
     BEAT_TIME = 30
@@ -228,7 +228,7 @@ DST_ID {} {}
                 self.data_change_handler(self)
 
             if len(down_nodes) > 0:
-                self.on_nodes_down(k)
+                self.on_nodes_down(down_nodes)
 
         if obj['dst_id'] == -1 or obj['dst_id'] == self.node_id:
             # broadcast or self's
