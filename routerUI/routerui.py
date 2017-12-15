@@ -101,6 +101,7 @@ class Ui_MainWindow(object):
         self.StopNode.clicked.connect(self.NodeStop)
         self.Send.clicked.connect(self.SendData)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        self.Send.setEnabled(False)
         self.node = None
         self.StopNode.setEnabled(False)
 
@@ -183,11 +184,7 @@ class Ui_MainWindow(object):
         except:
             self.TrafficLog.append("Please input info with json format\n")
             return
-        self.LsAlgoBtn.setEnabled(False)
-        self.DvAlgoBtn.setEnabled(False)
-        self.StopNode.setEnabled(True)
-        self.routeinit.setReadOnly(True)
-
+        self.UIChangeOnStart()
         self.node = route_node.LSRouteNode(initinfo, obj_handler=self.handler, data_change_handler=self.change)
         self.NodeId.setText(str(self.node.node_id))
         self.node.start()
@@ -201,19 +198,27 @@ class Ui_MainWindow(object):
         except:
             self.TrafficLog.append("Please input info with json format\n")
             return
-        self.DvAlgoBtn.setEnabled(False)
-        self.LsAlgoBtn.setEnabled(False)
-        self.StopNode.setEnabled(True)
-        self.routeinit.setReadOnly(True)
+        self.UIChangeOnStart()
         self.node =  route_node.DVRouteNode(initinfo, obj_handler=self.handler, data_change_handler=self.change)
         self.NodeId.setText(str(self.node.node_id))
         self.node.start()
 
     def NodeStop(self):
+        self.UIChangeOnStop()
+        self.node.stop()
+        self.node.recv_sock.close()
+        self.node = None
+
+    def UIChangeOnStart(self):
+        self.DvAlgoBtn.setEnabled(False)
+        self.LsAlgoBtn.setEnabled(False)
+        self.StopNode.setEnabled(True)
+        self.routeinit.setReadOnly(True)
+        self.Send.setEnabled(True)
+
+    def UIChangeOnStop(self):
         self.routeinit.setReadOnly(False)
         self.StopNode.setEnabled(False)
         self.DvAlgoBtn.setEnabled(True)
         self.LsAlgoBtn.setEnabled(True)
-        self.node.stop()
-        self.node.recv_sock.close()
-        self.node = None
+        self.Send.setEnabled(False)
