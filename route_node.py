@@ -46,7 +46,7 @@ class BaseRouteNode:
         fh.setLevel(logging.DEBUG)
         # create console handler with a higher log level
         ch = logging.StreamHandler()
-        ch.setLevel(logging.ERROR)
+        ch.setLevel(logging.DEBUG)
         # create formatter and add it to the handlers
         formatter = logging.Formatter('[%(filename)s:%(lineno)s - %(funcName)s()] %(asctime)s - %(name)s - %(levelname)s - %(message)s')
         fh.setFormatter(formatter)
@@ -291,7 +291,9 @@ DST_ID {} {}
             # self.logger.debug("Waiting for next event...")
             readable, writable, exceptional = select.select(inputs, outputs, inputs, self.TIMEOUT)
             if not (readable or writable or exceptional):
-                self.logger.warn("TIME OUT!!")
+                # timeout
+                # self.logger.warn("TIME OUT!!")
+                pass
             for s in readable:
                 if s is self.recv_sock:
                     raw, addr = s.recvfrom(self.BUFFER_SIZE)
@@ -522,7 +524,7 @@ class DVRouteNode(BaseRouteNode):
     def dv_algo(other_node_id, other_cost_table, source_cost_table, forward_table):
         changeFlag = False
         for k,v in [i for i in forward_table.items()]:
-            if v == other_node_id and k not in other_cost_table:
+            if v == other_node_id and k not in other_cost_table and k != other_node_id:
                 source_cost_table.pop(k)
                 forward_table.pop(k)
 
@@ -570,6 +572,10 @@ class DVRouteNode(BaseRouteNode):
             self.send(poison_reverse_packet, i)
 
     def on_nodes_down(self, node_ids):
+        self.send_new_cost_table()
+
+    def start(self):
+        BaseRouteNode.start(self)
         self.send_new_cost_table()
 
 class CentralControlNode(LSRouteNode):

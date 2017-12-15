@@ -20,8 +20,10 @@ class Ui_MainWindow(object):
     }
 
     change_ui_lock = threading.Lock()
-    change_ui_signal = QtCore.pyqtSignal(str)
-    change_ui_thread = None
+    change_ui_signal_change = QtCore.pyqtSignal()
+    change_ui_signal_handler = QtCore.pyqtSignal()
+    change_ui_thread_change = None
+    change_ui_thread_handler = None
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -123,34 +125,48 @@ class Ui_MainWindow(object):
             self.sig = sig
             self.func = func
             self.obj = obj
-            # self.finished.connect(self.onfinish)
+            self.finished.connect(self.onfinish)
 
         def run(self):
-            self.sig.emit("")
+            self.sig.emit()
             print("emitted")
             self.exit()
-            self.wait()
             print("bye")
-            self.sig.disconnect(self.func)
-            self.obj.change_ui_lock.release()
+            # self.sig.disconnect(self.func)
+            # self.obj.change_ui_lock.release()
 
-        # def onfinish(self):
+        def onfinish(self):
+            self.wait()
+
+        def __del__(self):
+            self.wait()
 
     def change(self,node_instance):
+        print("in change")
         cost_table = self.CostTable
         forward_table = self.ForwardTable
-        def _change(self):
-            # cost_table.clear()
+        @QtCore.pyqtSlot()
+        def _change():
+            print("in _change")
             cost_table.setText(str(node_instance.cost_table)+'\n')
-            # forward_table.clear()
             forward_table.setText(str(node_instance.forward_table)+'\n')
-        self.change_ui_lock.acquire()
-        self.change_ui_thread = self.WrapperThread(self.change_ui_signal, _change, self)
-        self.change_ui_signal.connect(_change)
-        self.change_ui_thread.start()
+        # self.change_ui_lock.acquire()
+        self.change_ui_thread_change = self.WrapperThread(self.change_ui_signal_change, _change, self)
+        self.change_ui_signal_change.connect(_change)
+        self.change_ui_thread_change.start()
 
     def handler(self,obj):
-        self.TrafficLog.append('rev packet')
+        print("in handler")
+        # traffic_log = self.TrafficLog
+        # @QtCore.pyqtSlot()
+        # def _handler():
+        #     print("in _handler")
+        #     traffic_log.setText('rev packet ' + str(obj))
+        # # self.change_ui_lock.acquire()
+        # self.change_ui_thread_handler = self.WrapperThread(self.change_ui_signal_handler, _handler, self)
+        # self.change_ui_signal_handler.connect(_handler)
+        # self.change_ui_thread_handler.start()
+        self.TrafficLog.append('recv packet ' + str(obj))
 
     def SendData(self):
         data = self.Data.toPlainText()
