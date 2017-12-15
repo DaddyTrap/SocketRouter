@@ -11,6 +11,7 @@ import sys
 sys.path.append("..")
 import route_node
 import json
+import threading
 class Ui_MainWindow(object):
     PACKET = {
         "packet_type": route_node.BaseRouteNode.PACKET_DATA,
@@ -18,7 +19,9 @@ class Ui_MainWindow(object):
         "data": b'Hey guy!'
     }
 
-
+    change_ui_lock = threading.Lock()
+    change_ui_signal = QtCore.pyqtSignal(str)
+    change_ui_thread = None
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -114,9 +117,37 @@ class Ui_MainWindow(object):
         self.StopNode.setText(_translate("MainWindow", "Stop Node"))
         self.menuRouter.setTitle(_translate("MainWindow", "Router"))
 
+    class WrapperThread(QtCore.QThread):
+        def __init__(self, sig, func, obj):
+            QtCore.QThread.__init__(self)
+            self.sig = sig
+            self.func = func
+            self.obj = obj
+            # self.finished.connect(self.onfinish)
+
+        def run(self):
+            self.sig.emit("")
+            print("emitted")
+            self.exit()
+            self.wait()
+            print("bye")
+            self.sig.disconnect(self.func)
+            self.obj.change_ui_lock.release()
+
+        # def onfinish(self):
+
     def change(self,node_instance):
-        self.CostTable.append(str(node_instance.cost_table)+'\n')
-        self.ForwardTable.append(str(node_instance.forward_table)+'\n')
+        cost_table = self.CostTable
+        forward_table = self.ForwardTable
+        def _change(self):
+            # cost_table.clear()
+            cost_table.setText(str(node_instance.cost_table)+'\n')
+            # forward_table.clear()
+            forward_table.setText(str(node_instance.forward_table)+'\n')
+        self.change_ui_lock.acquire()
+        self.change_ui_thread = self.WrapperThread(self.change_ui_signal, _change, self)
+        self.change_ui_signal.connect(_change)
+        self.change_ui_thread.start()
 
     def handler(self,obj):
         self.TrafficLog.append('rev packet')
@@ -125,7 +156,7 @@ class Ui_MainWindow(object):
         data = self.Data.toPlainText()
         target = self.TargetAddress.toPlainText()
         self.PACKET["data"] = data
-        self.node.send(self.PACKET, target)
+        self.node.send(self.PACKET, int(target))
         self.TrafficLog.append('send data to %s' % (target))
 
     def UseLs(self):
@@ -141,7 +172,7 @@ class Ui_MainWindow(object):
         self.StopNode.setEnabled(True)
         self.routeinit.setReadOnly(True)
 
-        self.node = route_node.LSRouteNode(initinfo, obj_handler=self.handler, data_change_handler=self.change, name='node1')
+        self.node = route_node.LSRouteNode(initinfo, obj_handler=self.handler, data_change_handler=self.change)
         self.NodeId.setText(str(self.node.node_id))
         self.node.start()
 
@@ -158,7 +189,7 @@ class Ui_MainWindow(object):
         self.LsAlgoBtn.setEnabled(False)
         self.StopNode.setEnabled(True)
         self.routeinit.setReadOnly(True)
-        self.node =  route_node.DVRouteNode(initinfo, obj_handler=self.handler, data_change_handler=self.change, name='node1')
+        self.node =  route_node.DVRouteNode(initinfo, obj_handler=self.handler, data_change_handler=self.change)
         self.NodeId.setText(str(self.node.node_id))
         self.node.start()
 
@@ -168,3 +199,5 @@ class Ui_MainWindow(object):
         self.DvAlgoBtn.setEnabled(True)
         self.LsAlgoBtn.setEnabled(True)
         self.node.stop()
+        self.node.recv_sock.close()
+        self.node = None

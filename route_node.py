@@ -39,7 +39,7 @@ class BaseRouteNode:
 
     def build_logger(self, name):
         # create logger with 'RouteNode'
-        self.logger = logging.getLogger(name)
+        self.logger = logging.Logger(name)
         self.logger.setLevel(logging.DEBUG)
         # create file handler which logs even debug messages
         fh = logging.FileHandler('{}.log'.format(name))
@@ -55,16 +55,20 @@ class BaseRouteNode:
         self.logger.addHandler(fh)
         self.logger.addHandler(ch)
 
-    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
-        self.build_logger(name)
+        self.logger.info("LOGGER INITIALIZED!!!!")
 
-        self.name = name
+    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
+        # self.build_logger(name)
+
+        # self.name = name
         self.forward_table = {}
         self.cost_table = {}
         self.id_to_addr = {}
         self.neighbors = []
         self.send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # self.send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # self.recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.broadcast_seq_num = random.randint(0, sys.maxsize)
         self.data_obj_handler = obj_handler
         # called when [forward_table, cost_table] changed
@@ -96,6 +100,8 @@ class BaseRouteNode:
                 "origin_cost": v['cost'],
                 "downed": False
             }
+        self.name = obj['name']
+        self.build_logger(self.name)
         if isinstance(self.data_change_handler, collections.Callable):
             self.data_change_handler(self)
 
@@ -196,7 +202,7 @@ DST_ID {} {}
     # ROUTE -> route_obj_handler
     # raw is for forwarding
     def forward_obj(self, obj, raw):
-        self.logger.debug("Got packet from {}".format(obj['src_id']))
+        self.logger.debug("Got packet from {}:\n{}".format(obj['src_id'], raw))
         src_id = obj['src_id']
         # only neighbors in the down_check_table
         if src_id in self.down_check_table.keys():
@@ -209,6 +215,7 @@ DST_ID {} {}
                 self.down_check_table[src_id]['downed'] = False
                 self.cost_table[src_id] = self.down_check_table[src_id]['origin_cost']
                 self.forward_table[src_id] = src_id
+                self.neighbors.append(src_id)
                 
                 if isinstance(self.data_change_handler, collections.Callable):
                     self.data_change_handler(self)
@@ -223,11 +230,13 @@ DST_ID {} {}
                     self.down_check_table[k]['downed'] = True
                     del self.cost_table[k]
                     del self.forward_table[k]
+                    self.neighbors.remove(src_id)
             
             if isinstance(self.data_change_handler, collections.Callable):
                 self.data_change_handler(self)
 
             if len(down_nodes) > 0:
+                self.logger.info("nodes: {} seem(s) downed".format(down_nodes))
                 self.on_nodes_down(down_nodes)
 
         if obj['dst_id'] == -1 or obj['dst_id'] == self.node_id:
@@ -257,7 +266,8 @@ DST_ID {} {}
 
                 # broadcast it
                 for node_id in self.neighbors:
-                    self.raw_send(raw, node_id)
+                    if node_id != obj['src_id']:
+                        self.raw_send(raw, node_id)
 
             # receive it
             if obj['packet_type'] == BaseRouteNode.PACKET_ROUTE:
@@ -278,14 +288,14 @@ DST_ID {} {}
         outputs = []
         
         while self.running:
-            self.logger.debug("Waiting for next event...")
+            # self.logger.debug("Waiting for next event...")
             readable, writable, exceptional = select.select(inputs, outputs, inputs, self.TIMEOUT)
             if not (readable or writable or exceptional):
                 self.logger.warn("TIME OUT!!")
             for s in readable:
                 if s is self.recv_sock:
                     raw, addr = s.recvfrom(self.BUFFER_SIZE)
-                    self.logger.debug("Recved raw from {}:\n{}".format(addr, raw))
+                    # self.logger.debug("Recved raw from {}:\n{}".format(addr, raw))
                     obj = self.raw_to_obj(raw)
                     self.forward_obj(obj, raw)
 
@@ -306,7 +316,7 @@ DST_ID {} {}
         count = 0
         while self.running:
             if count % 10 == 0:
-                count = 0
+                count += 1
                 packet = {
                     "packet_type": BaseRouteNode.PACKET_BEAT,
                     "data_type": BaseRouteNode.BEAT_BEAT,
@@ -348,12 +358,21 @@ DST_ID {} {}
         if not dst_node_id in self.forward_table and dst_node_id != -1:
             self.logger.warn("No such id in forward_table yet")
             return 0
+        self.logger.info("Going to send to {}:\n{}".format(dst_node_id, raw_data))
         if dst_node_id == -1:
             for node_id in self.neighbors:
+                # if not node_id in self.forward_table:
+                #     self.logger.warn("node_id: {} not reachable".format(node_id))
+                #     continue
+                    # raise Exception("node_id not reachable")
                 next_node_id = self.forward_table[node_id]
                 msg_tuple = (raw_data, self.id_to_addr[next_node_id])
                 self.send_sock.sendto(msg_tuple[0], msg_tuple[1])
         else:
+            # if not dst_node_id in self.forward_table:
+            #     self.logger.warn("node_id: {} not reachable".format(dst_node_id))
+            #     return
+                # raise Exception("node_id not reachable")
             next_node_id = self.forward_table[dst_node_id]
             msg_tuple = (raw_data, self.id_to_addr[next_node_id])
             self.send_sock.sendto(msg_tuple[0], msg_tuple[1])
@@ -491,8 +510,10 @@ class LSRouteNode(BaseRouteNode):
 
     def on_nodes_down(self, node_ids):
         for node_id in node_ids:
-            del self.topo[node_id]
-            del self.topo[self.node_id][node_id]
+            if node_id in self.topo:
+                del self.topo[node_id]
+            if node_id in self.topo[self.node_id]:
+                del self.topo[self.node_id][node_id]
         self.broadcast_self_info()
 
 class DVRouteNode(BaseRouteNode):

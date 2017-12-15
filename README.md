@@ -6,6 +6,7 @@
 
 ```plain
 {
+  "name": String,
   "node_id": Number,
   "ip": "$ip",
   "port": $port,
