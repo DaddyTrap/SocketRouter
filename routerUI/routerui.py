@@ -130,9 +130,9 @@ class Ui_MainWindow(object):
 
         def run(self):
             self.sig.emit()
-            print("emitted")
+            # print("emitted")
             self.exit()
-            print("bye")
+            # print("bye")
             # self.sig.disconnect(self.func)
             # self.obj.change_ui_lock.release()
 
@@ -143,12 +143,12 @@ class Ui_MainWindow(object):
             self.wait()
 
     def change(self,node_instance):
-        print("in change")
+        # print("in change")
         cost_table = self.CostTable
         forward_table = self.ForwardTable
         @QtCore.pyqtSlot()
         def _change():
-            print("in _change")
+            # print("in _change")
             cost_table.setText(str(node_instance.cost_table)+'\n')
             forward_table.setText(str(node_instance.forward_table)+'\n')
         # self.change_ui_lock.acquire()
@@ -157,7 +157,7 @@ class Ui_MainWindow(object):
         self.change_ui_thread_change.start()
 
     def handler(self,obj):
-        print("in handler")
+        # print("in handler")
         # traffic_log = self.TrafficLog
         # @QtCore.pyqtSlot()
         # def _handler():

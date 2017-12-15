@@ -204,40 +204,42 @@ DST_ID {} {}
     def forward_obj(self, obj, raw):
         self.logger.debug("Got packet from {}:\n{}".format(obj['src_id'], raw))
         src_id = obj['src_id']
+        cur_time = time.time()
+
         # only neighbors in the down_check_table
         if src_id in self.down_check_table.keys():
             # update last_recved_time
-            cur_time = time.time()
-            self.down_check_table[src_id]['last_recved_table'] = cur_time
+            self.down_check_table[src_id]['last_recved_time'] = cur_time
             if self.down_check_table[src_id]['downed'] == True:
                 # up again
-                # TODO: Maybe this is not a good way to `down` it
+                # TODO: Maybe this is not a good way to `up` it
                 self.down_check_table[src_id]['downed'] = False
                 self.cost_table[src_id] = self.down_check_table[src_id]['origin_cost']
                 self.forward_table[src_id] = src_id
                 self.neighbors.append(src_id)
                 
-                if isinstance(self.data_change_handler, collections.Callable):
-                    self.data_change_handler(self)
+                # if isinstance(self.data_change_handler, collections.Callable):
+                #     self.data_change_handler(self)
 
-            # check down
-            down_nodes = []
-            for k, v in self.down_check_table.items():
-                if cur_time - v['last_recved_time'] > BaseRouteNode.BEAT_TIME * 2:
-                    # think it's down
-                    down_nodes.append(k)
-                    # modify table to make it `down`
-                    self.down_check_table[k]['downed'] = True
-                    del self.cost_table[k]
-                    del self.forward_table[k]
-                    self.neighbors.remove(src_id)
-            
-            if isinstance(self.data_change_handler, collections.Callable):
-                self.data_change_handler(self)
+        # check down
+        down_nodes = []
+        for k, v in self.down_check_table.items():
+            if not v['downed'] and cur_time - v['last_recved_time'] > BaseRouteNode.BEAT_TIME * 2:
+                # think it's down
+                self.logger.debug("{} seems downed: {} - {} = {}".format(k, cur_time, v['last_recved_time'], cur_time - v['last_recved_time']))
+                down_nodes.append(k)
+                # modify table to make it `down`
+                self.down_check_table[k]['downed'] = True
+                del self.cost_table[k]
+                del self.forward_table[k]
+                self.neighbors.remove(k)
+        
+        if isinstance(self.data_change_handler, collections.Callable):
+            self.data_change_handler(self)
 
-            if len(down_nodes) > 0:
-                self.logger.info("nodes: {} seem(s) downed".format(down_nodes))
-                self.on_nodes_down(down_nodes)
+        if len(down_nodes) > 0:
+            self.logger.info("nodes: {} seem(s) downed".format(down_nodes))
+            self.on_nodes_down(down_nodes)
 
         if obj['dst_id'] == -1 or obj['dst_id'] == self.node_id:
             # broadcast or self's
@@ -318,13 +320,14 @@ DST_ID {} {}
         count = 0
         while self.running:
             if count % 10 == 0:
-                count += 1
+                count = 0
                 packet = {
                     "packet_type": BaseRouteNode.PACKET_BEAT,
                     "data_type": BaseRouteNode.BEAT_BEAT,
                     "data": "ALIVE"
                 }
                 self.send(packet, -1)
+            count += 1
             time.sleep(self.BEAT_TIME / 10)
 
     def start(self):
