@@ -149,10 +149,14 @@ class Ui_MainWindow(object):
         @QtCore.pyqtSlot()
         def _change():
             # print("in _change")
+            cText = ""
+            fText = ""
             for k,v in node_instance.cost_table.items():
-                cost_table.setText('cost %d to reach node %d\n' % (v,k))
+                cText += 'cost %d to reach node %d\n' % (v,k)
+            cost_table.setText(cText)
             for k,v in node_instance.forward_table.items():
-                forward_table.setText('reach node %d via node %d\n' % (v,k))
+                fText += 'reach node %d via node %d\n' % (v,k)
+            forward_table.setText(fText)
         # self.change_ui_lock.acquire()
         self.change_ui_thread_change = self.WrapperThread(self.change_ui_signal_change, _change, self)
         self.change_ui_signal_change.connect(_change)

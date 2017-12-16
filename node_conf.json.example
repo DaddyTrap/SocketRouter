@@ -8,6 +8,16 @@
       "real_ip": "127.0.0.1",
       "real_port": 8001,
       "cost": 10
+    },
+    "3": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8002,
+      "cost": 10
+    },
+    "4": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8003,
+      "cost": 20
     }
   }
 }
@@ -22,6 +32,93 @@
       "real_ip": "127.0.0.1",
       "real_port": 8000,
       "cost": 10
+    },
+    "3": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8002,
+      "cost": 10
+    },
+    "4": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8003,
+      "cost": 5
+    }
+  }
+}
+
+{
+  "name": "node3",
+  "node_id": 3,
+  "ip": "127.0.0.1",
+  "port": 8002,
+  "topo": {
+    "1": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8000,
+      "cost": 10
+    },
+    "2": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8001,
+      "cost": 10
+    },
+    "4": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8003,
+      "cost": 5
+    },
+    "5": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8004,
+      "cost": 5
+    }
+  }
+}
+
+{
+  "name": "node4",
+  "node_id": 4,
+  "ip": "127.0.0.1",
+  "port": 8003,
+  "topo": {
+    "1": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8000,
+      "cost": 20
+    },
+    "2": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8001,
+      "cost": 5
+    },
+    "3": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8002,
+      "cost": 5
+    },
+    "5": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8004,
+      "cost": 5
+    }
+  }
+}
+
+{
+  "name": "node5",
+  "node_id": 5,
+  "ip": "127.0.0.1",
+  "port": 8004,
+  "topo": {
+    "3": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8002,
+      "cost": 5
+    },
+    "4": {
+      "real_ip": "127.0.0.1",
+      "real_port": 8003,
+      "cost": 5
     }
   }
 }
