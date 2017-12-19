@@ -65,6 +65,7 @@ if __name__ == '__main__':
         sys.exit(0)
     mode = sys.argv[1]
     nodes = gen_nodes(mode)
+    signal.signal(signal.SIGINT, stop)
     if not nodes:
         print("Generating nodes error")
         sys.exit(1)
@@ -73,7 +74,6 @@ if __name__ == '__main__':
         node.start()
         print("{} started.".format(node.name))
         time.sleep(0.5)
-    signal.signal(signal.SIGINT, stop)
 
     time.sleep(60)
 

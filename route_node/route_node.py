@@ -105,6 +105,9 @@ class BaseRouteNode:
             }
         self.name = obj['name']
         
+        self.cost_table[self.node_id] = 0
+        self.forward_table[self.node_id] = self.node_id
+        
         if 'verbose' in kwargs:
             self.build_logger(self.name, kwargs['verbose'])
 
@@ -427,16 +430,16 @@ class LSRouteNode(BaseRouteNode):
         else:
             with open(node_file) as f:
                 obj = json.load(f)
-        topo = obj['topo']
-        for k, v in [i for i in topo.items()]:
-            topo[int(k)] = v
-            del topo[k]
+        topo = {}
+        for k, v in obj['topo'].items():
+            topo[int(k)] = v['cost']
         self.topo = {
             self.node_id: topo
         }
-        for k in self.topo[self.node_id]:
-            del self.topo[self.node_id][k]['real_ip']
-            del self.topo[self.node_id][k]['real_port']
+        # for k in self.topo[self.node_id]:
+        #     del self.topo[self.node_id][k]['real_ip']
+        #     del self.topo[self.node_id][k]['real_port']
+        self.topo[self.node_id][self.node_id] = 0
 
         self.last_broadcast_time = time.time()
 
@@ -451,22 +454,33 @@ class LSRouteNode(BaseRouteNode):
             return
         new_info = self.data_to_route_obj(route_obj['data'])
 
-        updated = False        
+        topo_updated = False
         if route_obj['src_id'] in self.topo:
             old_info = self.topo[route_obj['src_id']]
-            for k, v in old_info.items():
-                old_info[k] = v['cost']
             self.logger.debug(old_info)
-            intersection = set(old_info.items()) & set(new_info.items())
-            if len(intersection) > 0:
+
+            if set(old_info.keys()) != set(new_info.keys()):
+                topo_updated = False
+            else:
+                topo_updated = False
+                for k, v in old_info.items():
+                    if old_info[k] != new_info[k]:
+                        topo_updated = True
+                        break   
+
+            if topo_updated:
+                # print(old_info)
+                # print(new_info)
                 self.topo[route_obj['src_id']] = new_info
-                updated = True
+        else:
+            self.topo[route_obj['src_id']] = new_info
+            topo_updated = True
 
         # broadcast self info
         # if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
         #     self.broadcast_self_info()
 
-        if updated:
+        if topo_updated:
             self.cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.forward_table)
             
             if isinstance(self.data_change_handler, collections.Callable):
