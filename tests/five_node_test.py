@@ -33,11 +33,32 @@ def gen_node(mode, node_filename):
                 name=node_filename,
                 verbose=False
                 )
+    elif mode == "CLS":
+        ret = route_node.CentralNormalNode(
+                node_filename,
+                obj_handler=obj_handler,
+                data_change_handler=data_change_handler,
+                name=node_filename,
+                verbose=False
+                )
+    elif mode == "CLSC":
+        ret = route_node.CentralControlNode(
+                node_filename,
+                obj_handler=obj_handler,
+                data_change_handler=data_change_handler,
+                name=node_filename,
+                verbose=False
+                )
     return ret
 
 def gen_nodes(mode):
     ret = []
     for i in range(1, 6):
+        if mode == "CLS":
+            if i == 1:
+                node = gen_node(mode+"C", 'tests/five_node_test/node{}.json'.format(i))
+                ret.append(node)
+                continue
         node = gen_node(mode, 'tests/five_node_test/node{}.json'.format(i))
         if node == None:
             print("Seems that mode `{}` does not exist".format(mode))

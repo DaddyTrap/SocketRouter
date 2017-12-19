@@ -648,29 +648,56 @@ class CentralControlNode(LSRouteNode):
         LSRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
         self.control_forward_table = {}
         self.control_cost_table = {}
+
+    def cls_route_to_data(self,cls):
+        data = ''
+        for k,v in cls.items():
+            for k_,v_ in v.items():
+                data += '{} {} {}\n'.format(k,k_,v_)
+        return data.encode()
+
+
     def route_obj_handler(self, route_obj):
         self.logger.debug("Got route_obj:\n{}".format(route_obj))
+
+        if route_obj['data_type'] == BaseRouteNode.ROUTE_REQ:
+            self.broadcast_self_info()
+            return
         if route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
             self.logger.warn("Wrong data_type for this node")
             return
         new_info = self.data_to_route_obj(route_obj['data'])
 
-        updated = False        
+        topo_updated = False
         if route_obj['src_id'] in self.topo:
             old_info = self.topo[route_obj['src_id']]
-            for k, v in old_info.items():
-                old_info[k] = v['cost']
             self.logger.debug(old_info)
-            intersection = set(old_info.items()) & set(new_info.items())
-            if len(intersection) > 0:
+
+            if set(old_info.keys()) != set(new_info.keys()):
+                topo_updated = False
+            else:
+                topo_updated = False
+                for k, v in old_info.items():
+                    if old_info[k] != new_info[k]:
+                        topo_updated = True
+                        break   
+
+            if topo_updated:
+                # print(old_info)
+                # print(new_info)
                 self.topo[route_obj['src_id']] = new_info
-                updated = True
+        else:
+            self.topo[route_obj['src_id']] = new_info
+            topo_updated = True
 
-        if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
-            self.broadcast_self_info()
 
-        if updated:
-            self.control_cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.control_forward_table)
+
+        # if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
+        #     self.broadcast_self_info()
+
+           
+        if topo_updated:
+            self.control_cost_table = CentralControlNode.central_ls_algo(self.node_id, self.topo, self.control_forward_table)
             self.forward_table = self.control_forward_table[self.node_id]
             self.cost_table = self.control_cost_table[self.node_id]
             
@@ -685,7 +712,7 @@ class CentralControlNode(LSRouteNode):
 
     def broadcast_control_info(self):
         # only send neighbor info
-        data = BaseRouteNode.route_obj_to_data(self.control_forward_table)
+        data = self.cls_route_to_data(self.control_forward_table)
         packet = {
             "packet_type": BaseRouteNode.PACKET_ROUTE,
             "data_type": BaseRouteNode.ROUTE_C_LS,
@@ -697,11 +724,10 @@ class CentralControlNode(LSRouteNode):
     def central_ls_algo(source_node_id, topo, forward_table):
         if len(topo) == 0:
             return
-
         nodes = set()
         for key, val in topo.items():
             for k, v in val.items():
-                nodes.add(key)
+                nodes.add(k)
                 nodes.add(k)
         D = {}
         p = {}
@@ -722,30 +748,33 @@ class CentralControlNode(LSRouteNode):
                     D[start_node_id][n] = topo[start_node_id][n]
                     p[start_node_id][n] = start_node_id
                 else:
-                    D[n] = sys.maxsize
-            D[start_node_id] = 0
+                    D[start_node_id][n] = sys.maxsize
+
+            D[start_node_id][start_node_id] = 0
             while len(N_) != len(nodes):
-                tmp_list = sorted(D.items(), key=lambda asd: asd[1])
+                tmp_list = sorted(D[start_node_id].items(), key=lambda asd: asd[1])
                 for k, v in tmp_list:
                     if k not in N_:
                         N_.add(k)
                         if k in topo:
                             for key, val in topo[k].items():
-                                if (topo[k][key] + D[k] < D[key]):
-                                    p[key] = k
-                                    D[key] = topo[k][key] + D[k]
+                                if (topo[k][key] + D[start_node_id][k] < D[start_node_id][key]):
+                                    p[start_node_id][key] = k
+                                    D[start_node_id][key] = topo[k][key] + D[start_node_id][k]
                         break
-            for k, v in p.items():
+
+            for k, v in p[start_node_id].items():
                 if v == start_node_id:
                     tk = k
                     last = v
                     while tk != last:
                         last = tk
                         forward_table[start_node_id][tk] = k
-                        for key, val in p.items():
+                        for key, val in p[start_node_id].items():
                             if val == tk:
                                 tk = key
                                 break
+        print (D)
         return D
 
 
@@ -753,12 +782,37 @@ class CentralNormalNode(LSRouteNode):
     def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
         LSRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
     
+    def data_to_cls_route(self,data):
+        ret = {}
+        try:
+            text = data.decode()
+            lines = text.split('\n')
+            for line in lines:
+                if len(line) == 0:
+                    continue
+                split_res = line.split(' ')
+                node_id = int(split_res[0])
+                start = int(split_res[1])
+                via = int(split_res[2])
+                if node_id not in ret:
+                    ret[node_id] = {}
+                ret[node_id][start] = via
+        except Exception as e:
+            self.logger.error("Exception [{}] occurred!! Will stop parsing.".format(str(e)))
+            self.logger.error("\n{}".format(traceback.format_exc()))
+            return None
+
+        return ret
+
     def route_obj_handler(self,route_obj):
         if route_obj['data_type'] == BaseRouteNode.ROUTE_C_LS:
-            new_forward = self.data_to_route_obj(route_obj['data'])
+
+            new_forward = self.data_to_cls_route(route_obj['data'])
             if self.node_id in new_forward:
                 self.forward_table = new_forward[self.node_id]
                 self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
+                if isinstance(self.data_change_handler, collections.Callable):
+                    self.data_change_handler(self)
             return
         # elif route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
         #     self.logger.warn("Wrong data_type for this node")
@@ -778,8 +832,8 @@ class CentralNormalNode(LSRouteNode):
         #         updated = True
 
         # broadcast self info
-        if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
-            self.broadcast_self_info()
+        # if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
+        #     self.broadcast_self_info()
 
         # if updated:
         #     self.cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.forward_table)
