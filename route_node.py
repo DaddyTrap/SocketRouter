@@ -29,6 +29,7 @@ class BaseRouteNode:
     ROUTE_LS = "LS"
     ROUTE_DV = "DV"
     ROUTE_C_LS = 'CLS' # for central route
+    ROUTE_REQ = "REQ"
 
     BEAT_BEAT = "BEAT"
 
@@ -36,6 +37,7 @@ class BaseRouteNode:
     BUFFER_SIZE = 1024 * 1024 * 10
     SEQ_LIFETIME = 60
     BEAT_TIME = 30
+    TICK_TIME = 1
 
     def build_logger(self, name):
         # create logger with 'RouteNode'
@@ -104,6 +106,8 @@ class BaseRouteNode:
         self.build_logger(self.name)
         if isinstance(self.data_change_handler, collections.Callable):
             self.data_change_handler(self)
+
+        self.send_route_req()
 
     def raw_to_obj(self, raw_proto_data):
         text = raw_proto_data.decode('utf-8', 'ignore')
@@ -223,6 +227,7 @@ DST_ID {} {}
 
         # check down
         down_nodes = []
+        something_down = False
         for k, v in self.down_check_table.items():
             if not v['downed'] and cur_time - v['last_recved_time'] > BaseRouteNode.BEAT_TIME * 2:
                 # think it's down
@@ -233,8 +238,9 @@ DST_ID {} {}
                 del self.cost_table[k]
                 del self.forward_table[k]
                 self.neighbors.remove(k)
+                something_down = True
         
-        if isinstance(self.data_change_handler, collections.Callable):
+        if something_down and isinstance(self.data_change_handler, collections.Callable):
             self.data_change_handler(self)
 
         if len(down_nodes) > 0:
@@ -316,32 +322,39 @@ DST_ID {} {}
             for s in exceptional:
                 self.logger.error("Exception on {}".format(s.getpeername()))
 
-    def beat_thread_func(self):
-        count = 0
+    def tick_thread_func(self):
         while self.running:
-            if count % 10 == 0:
-                count = 0
-                packet = {
-                    "packet_type": BaseRouteNode.PACKET_BEAT,
-                    "data_type": BaseRouteNode.BEAT_BEAT,
-                    "data": "ALIVE"
-                }
-                self.send(packet, -1)
-            count += 1
-            time.sleep(self.BEAT_TIME / 10)
+            self.beat_func()
+            self.on_tick()
+            time.sleep(self.TICK_TIME)
+
+    def on_tick(self):
+        raise NotImplementedError
+
+    _beat_count = 0
+    def beat_func(self):
+        if self._beat_count % int(BaseRouteNode.BEAT_TIME) == 0:
+            self._beat_count = 0
+            packet = {
+                "packet_type": BaseRouteNode.PACKET_BEAT,
+                "data_type": BaseRouteNode.BEAT_BEAT,
+                "data": "ALIVE"
+            }
+            self.send(packet, -1)
+        self._beat_count += 1
 
     def start(self):
         # start thread to select socket
         self.running = True
         self.select_thread = threading.Thread(target=self.select_thread_func)
         self.select_thread.start()
-        self.beat_thread = threading.Thread(target=self.beat_thread_func)
-        self.beat_thread.start()
+        self.tick_thread = threading.Thread(target=self.tick_thread_func)
+        self.tick_thread.start()
 
     def stop(self):
         self.running = False
         self.select_thread.join()
-        self.beat_thread.join()
+        self.tick_thread.join()
 
     # packet: {
     #     "packet_type": BaseRouteNode.PACKET_DATA,
@@ -381,6 +394,15 @@ DST_ID {} {}
             next_node_id = self.forward_table[dst_node_id]
             msg_tuple = (raw_data, self.id_to_addr[next_node_id])
             self.send_sock.sendto(msg_tuple[0], msg_tuple[1])
+
+    def send_route_req(self):
+        packet = {
+            "packet_type": BaseRouteNode.PACKET_ROUTE,
+            "data_type": BaseRouteNode.ROUTE_REQ,
+            "data": "REQ"
+        }
+        for node_id in self.neighbors:
+            self.send(packet, node_id)
         
     def route_obj_handler(self, route_obj):
         # Should be override
@@ -415,10 +437,14 @@ class LSRouteNode(BaseRouteNode):
         self.last_broadcast_time = time.time()
 
     def route_obj_handler(self, route_obj):
+        self.logger.debug("Got route_obj:\n{}".format(route_obj))
+
+        if route_obj['data_type'] == BaseRouteNode.ROUTE_REQ:
+            self.broadcast_self_info()
+            return
         if route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
             self.logger.warn("Wrong data_type for this node")
             return
-        self.logger.debug("Got route_obj:\n{}".format(route_obj))
         new_info = self.data_to_route_obj(route_obj['data'])
 
         updated = False        
@@ -433,8 +459,8 @@ class LSRouteNode(BaseRouteNode):
                 updated = True
 
         # broadcast self info
-        if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
-            self.broadcast_self_info()
+        # if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
+        #     self.broadcast_self_info()
 
         if updated:
             self.cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.forward_table)
@@ -521,6 +547,13 @@ class LSRouteNode(BaseRouteNode):
                 del self.topo[self.node_id][node_id]
         self.broadcast_self_info()
 
+    cur_count = 0
+    def on_tick(self):
+        if self.cur_count % self.BROADCAST_INFO_CD == 0:
+            self.cur_count = 0
+            self.broadcast_self_info()
+        self.cur_count += 1
+        
 class DVRouteNode(BaseRouteNode):
 
     @staticmethod
@@ -542,10 +575,13 @@ class DVRouteNode(BaseRouteNode):
         BaseRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
 
     def route_obj_handler(self, route_obj):
+        self.logger.debug("Got route_obj:\n{}".format(route_obj))
+        if route_obj['data_type'] == BaseRouteNode.ROUTE_REQ:
+            self.send_new_cost_table()
+            return
         if route_obj['data_type'] != BaseRouteNode.ROUTE_DV:
             self.logger.warn("Wrong data_type for this node")
             return
-        self.logger.debug("Got route_obj:\n{}".format(route_obj))
         other_info = self.data_to_route_obj(route_obj['data'])
         changed = DVRouteNode.dv_algo(route_obj['src_id'], other_info, self.cost_table, self.forward_table)
         if changed:
@@ -581,16 +617,24 @@ class DVRouteNode(BaseRouteNode):
         BaseRouteNode.start(self)
         self.send_new_cost_table()
 
+    update_interval = 30
+    cur_count = 0
+    def on_tick(self):
+        if self.cur_count % self.update_interval == 0:
+            self.cur_count = 0
+            self.send_new_cost_table()
+        self.cur_count += 1
+
 class CentralControlNode(LSRouteNode):
     def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
         LSRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
         self.control_forward_table = {}
         self.control_cost_table = {}
     def route_obj_handler(self, route_obj):
+        self.logger.debug("Got route_obj:\n{}".format(route_obj))
         if route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
             self.logger.warn("Wrong data_type for this node")
             return
-        self.logger.debug("Got route_obj:\n{}".format(route_obj))
         new_info = self.data_to_route_obj(route_obj['data'])
 
         updated = False        

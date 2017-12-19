@@ -126,7 +126,7 @@ class Ui_MainWindow(object):
             self.sig = sig
             self.func = func
             self.obj = obj
-            self.finished.connect(self.onfinish)
+            # self.finished.connect(self.onfinish)
 
         def run(self):
             self.sig.emit()

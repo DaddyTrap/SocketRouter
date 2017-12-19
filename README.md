@@ -79,6 +79,16 @@ $NDOE_ID_1 $LINK_COST_1
 ...
 ```
 
+#### 请求路由信息
+
+向邻居发送路由信息请求
+```plain
+SRC_ID 0
+DST_ID 1
+ROUTE REQ
+REQ
+```
+
 ### BEAT类型
 
 广播心跳信息：
