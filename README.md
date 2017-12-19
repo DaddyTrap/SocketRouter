@@ -2,6 +2,14 @@
 
 基于Socket来进行虚拟路由
 
+## 运行测试
+
+```bash
+# 在项目根目录
+python3 tests.five_node_test LS
+python3 tests.five_node_test DV
+```
+
 ## 结点配置文件
 
 ```plain

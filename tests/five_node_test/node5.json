@@ -1,23 +1,18 @@
 {
-  "name": "node1",
-  "node_id": 1,
+  "name": "node5",
+  "node_id": 5,
   "ip": "127.0.0.1",
-  "port": 8000,
+  "port": 8004,
   "topo": {
-    "2": {
-      "real_ip": "127.0.0.1",
-      "real_port": 8001,
-      "cost": 10
-    },
     "3": {
       "real_ip": "127.0.0.1",
       "real_port": 8002,
-      "cost": 10
+      "cost": 5
     },
     "4": {
       "real_ip": "127.0.0.1",
       "real_port": 8003,
-      "cost": 20
+      "cost": 5
     }
   }
 }

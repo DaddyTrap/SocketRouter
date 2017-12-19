@@ -39,7 +39,7 @@ class BaseRouteNode:
     BEAT_TIME = 30
     TICK_TIME = 1
 
-    def build_logger(self, name):
+    def build_logger(self, name, verbose=True):
         # create logger with 'RouteNode'
         self.logger = logging.Logger(name)
         self.logger.setLevel(logging.DEBUG)
@@ -55,7 +55,8 @@ class BaseRouteNode:
         ch.setFormatter(formatter)
         # add the handlers to the self.logger
         self.logger.addHandler(fh)
-        self.logger.addHandler(ch)
+        if verbose:
+            self.logger.addHandler(ch)
 
         self.logger.info("LOGGER INITIALIZED!!!!")
 
@@ -103,7 +104,10 @@ class BaseRouteNode:
                 "downed": False
             }
         self.name = obj['name']
-        self.build_logger(self.name)
+        
+        if 'verbose' in kwargs:
+            self.build_logger(self.name, kwargs['verbose'])
+
         if isinstance(self.data_change_handler, collections.Callable):
             self.data_change_handler(self)
 
@@ -282,7 +286,7 @@ DST_ID {} {}
                 self.route_obj_handler(obj)
             elif obj['packet_type'] == BaseRouteNode.PACKET_DATA:
                 if isinstance(self.data_obj_handler, collections.Callable):
-                    self.data_obj_handler(obj)
+                    self.data_obj_handler(self, obj)
             elif obj['packet_type'] == BaseRouteNode.PACKET_BEAT:
                 pass
             else:
@@ -617,7 +621,7 @@ class DVRouteNode(BaseRouteNode):
         BaseRouteNode.start(self)
         self.send_new_cost_table()
 
-    update_interval = 30
+    update_interval = 10
     cur_count = 0
     def on_tick(self):
         if self.cur_count % self.update_interval == 0:

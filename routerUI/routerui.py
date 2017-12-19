@@ -162,7 +162,7 @@ class Ui_MainWindow(object):
         self.change_ui_signal_change.connect(_change)
         self.change_ui_thread_change.start()
 
-    def handler(self,obj):
+    def handler(self, node_instance, obj):
         # print("in handler")
         # traffic_log = self.TrafficLog
         # @QtCore.pyqtSlot()

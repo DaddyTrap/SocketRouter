@@ -8,8 +8,8 @@ def change(node_instance):
     print(node_instance.name + " DATA CHANGED!!")
 
 if __name__ == "__main__":
-    node1 = route_node.LSRouteNode('tests/node_conf_1.json', obj_handler=handler, data_change_handler=change, name='node1')
-    node2 = route_node.LSRouteNode('tests/node_conf_2.json', obj_handler=handler, data_change_handler=change, name='node2')
+    node1 = route_node.LSRouteNode('simple_test/node_conf_1.json', obj_handler=handler, data_change_handler=change, name='node1')
+    node2 = route_node.LSRouteNode('simple_test/node_conf_2.json', obj_handler=handler, data_change_handler=change, name='node2')
     node1.start()
     node2.start()
 
@@ -31,8 +31,8 @@ if __name__ == "__main__":
     del node1
     del node2
 
-    node1 = route_node.DVRouteNode('tests/node_conf_1.json', obj_handler=handler, data_change_handler=change, name='node1')
-    node2 = route_node.DVRouteNode('tests/node_conf_2.json', obj_handler=handler, data_change_handler=change, name='node2')
+    node1 = route_node.DVRouteNode('simple_test/node_conf_1.json', obj_handler=handler, data_change_handler=change, name='node1')
+    node2 = route_node.DVRouteNode('simple_test/node_conf_2.json', obj_handler=handler, data_change_handler=change, name='node2')
     node1.start()
     node2.start()
 
