@@ -3,3 +3,4 @@ __pycache__/
 *.log
 test_dump_info.txt
 /*.png
+*.dump.txt

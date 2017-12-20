@@ -120,6 +120,8 @@ class BaseRouteNode:
         
         if 'verbose' in kwargs:
             self.build_logger(self.name, kwargs['verbose'])
+        else:
+            self.build_logger(self.name)
 
         if isinstance(self.data_change_handler, collections.Callable):
             self.data_change_handler(self)
@@ -242,27 +244,6 @@ DST_ID {} {}
                 # if isinstance(self.data_change_handler, collections.Callable):
                 #     self.data_change_handler(self)
 
-        # check down
-        down_nodes = []
-        something_down = False
-        for k, v in self.down_check_table.items():
-            if not v['downed'] and cur_time - v['last_recved_time'] > BaseRouteNode.BEAT_TIME * 2:
-                # think it's down
-                self.logger.debug("{} seems downed: {} - {} = {}".format(k, cur_time, v['last_recved_time'], cur_time - v['last_recved_time']))
-                down_nodes.append(k)
-                # modify table to make it `down`
-                self.down_check_table[k]['downed'] = True
-                del self.cost_table[k]
-                del self.forward_table[k]
-                self.neighbors.remove(k)
-                something_down = True
-        
-        if something_down and isinstance(self.data_change_handler, collections.Callable):
-            self.data_change_handler(self)
-
-        if len(down_nodes) > 0:
-            self.logger.info("nodes: {} seem(s) downed".format(down_nodes))
-            self.on_nodes_down(down_nodes)
 
         if obj['dst_id'] == -1 or obj['dst_id'] == self.node_id:
             # broadcast or self's
@@ -339,6 +320,33 @@ DST_ID {} {}
             for s in exceptional:
                 self.logger.error("Exception on {}".format(s.getpeername()))
 
+    def check_down(self):
+        # check down
+        cur_time = time.time()
+        down_nodes = []
+        something_down = False
+        for k, v in self.down_check_table.items():
+            if not v['downed'] and cur_time - v['last_recved_time'] > BaseRouteNode.BEAT_TIME * 2:
+                # think it's down
+                self.logger.debug("{} seems downed: {} - {} = {}".format(k, cur_time, v['last_recved_time'], cur_time - v['last_recved_time']))
+                down_nodes.append(k)
+                # modify table to make it `down`
+                self.down_check_table[k]['downed'] = True
+                del self.cost_table[k]
+                del self.forward_table[k]
+                for forward_table_k, forward_table_v in [i for i in self.forward_table.items()]:
+                    if forward_table_v == k:
+                        del self.forward_table[forward_table_k]
+                self.neighbors.remove(k)
+                something_down = True
+        
+        if something_down and isinstance(self.data_change_handler, collections.Callable):
+            self.data_change_handler(self)
+
+        if len(down_nodes) > 0:
+            self.logger.info("nodes: {} seem(s) downed".format(down_nodes))
+            self.on_nodes_down(down_nodes)
+
     def tick_thread_func(self):
         while self.running:
             self.beat_func()
@@ -358,6 +366,7 @@ DST_ID {} {}
                 "data": "ALIVE"
             }
             self.send(packet, -1)
+            self.check_down()
         self._beat_count += 1
 
     def start(self):
@@ -372,6 +381,7 @@ DST_ID {} {}
         self.running = False
         self.select_thread.join()
         self.tick_thread.join()
+        self.logger.debug("Stopped!!!")
 
     # packet: {
     #     "packet_type": BaseRouteNode.PACKET_DATA,
@@ -473,7 +483,7 @@ class LSRouteNode(BaseRouteNode):
             self.logger.debug(old_info)
 
             if set(old_info.keys()) != set(new_info.keys()):
-                topo_updated = False
+                topo_updated = True
             else:
                 topo_updated = False
                 for k, v in old_info.items():
@@ -576,6 +586,7 @@ class LSRouteNode(BaseRouteNode):
                 del self.topo[node_id]
             if node_id in self.topo[self.node_id]:
                 del self.topo[self.node_id][node_id]
+        self.cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.forward_table)
         self.send_self_info()
 
     cur_count = 0

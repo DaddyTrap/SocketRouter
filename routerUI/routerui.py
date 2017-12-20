@@ -9,7 +9,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 sys.path.append("..")
-import route_node
+import route_node.route_node as route_node
 import json
 import threading
 class Ui_MainWindow(object):

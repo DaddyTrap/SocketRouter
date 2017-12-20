@@ -68,22 +68,29 @@ def gen_nodes(mode):
 
 nodes = []
 
-def stop(sig_num=signal.SIGINT, frame=None):
+def snapshot(dump_filename):
     global nodes
-
+    
     dump_info = ''
-
-    print("Stopping...")
     for node in nodes:
-        node.stop()
         # Dump tables to file
         dump_info += '[{} infos]\n'.format(node.name)
         dump_info += 'Cost Table:\n{}\n\n'.format(json.dumps(node.cost_table, sort_keys=True, indent=4))
         dump_info += 'Forward Table:\n{}\n\n'.format(json.dumps(node.forward_table, sort_keys=True, indent=4))
         dump_info += '\n'
 
-    with open('test_dump_info.txt', 'w') as f:
+    with open(dump_filename, 'w') as f:
         f.write(dump_info)
+
+def stop(sig_num=signal.SIGINT, frame=None):
+    global nodes
+
+    print("Stopping...")
+
+    for node in nodes:
+        node.stop()
+
+    snapshot('test_info.dump.txt')
 
     del nodes
     sys.exit(0)
@@ -111,6 +118,7 @@ def dynamic_test():
         time.sleep(0.5)
 
     print("[Going to do Dynamic Test]")
+    time.sleep(30) # wait for the tables to be stable
 
     # test cost change
     print("\n--- Cost Change Test: Change node 3 cost ---")
@@ -121,10 +129,11 @@ def dynamic_test():
     time.sleep(30) # wait for the tables to be stable
     print("--- Cost Change Test: Finished ---\n")
 
+    snapshot('cost-change.dump.txt')
+
     # test down check
-    time.sleep(30) # wait for the tables to be stable
-    # make B down
-    print("\n--- Down Test: Stopped node 2 (Will cost 60 seconds in default to notice a node was down) ---")
+    # make node 2 down
+    print("\n--- Down Test: Stopped node 2 (Will cost 60 + 10 seconds in default to notice a node was down) ---")
     nodes[1].stop()
     time.sleep(route_node.BaseRouteNode.BEAT_TIME * 2 + 10) # wait for the
     print("--- Down Test: Finished ---\n")
