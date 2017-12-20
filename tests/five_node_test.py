@@ -54,12 +54,12 @@ def gen_node(mode, node_filename):
 def gen_nodes(mode):
     ret = []
     for i in range(1, 6):
-        node = gen_node(mode, 'tests/five_node_test/node{}.json'.format(i))
         if mode == "CLS":
             if i == 5:
                 node = gen_node(mode+"C", 'tests/five_node_test/node{}.json'.format(i))
                 ret.append(node)
                 continue
+        node = gen_node(mode, 'tests/five_node_test/node{}.json'.format(i))
         if node == None:
             print("Seems that mode `{}` does not exist".format(mode))
             return None

@@ -574,16 +574,13 @@ class LSRouteNode(BaseRouteNode):
                     break
         forward_table.clear()
         for k, v in p.items():
-            if v == source_node_id:
-                tk = k
-                last = v
-                while tk != last:
-                    last = tk
-                    forward_table[tk] = k
-                    for key, val in p.items():
-                        if val == tk:
-                            tk = key
-                            break
+            if v != source_node_id:
+                tv = v
+                while tv in p and p[tv] != source_node_id:
+                    tv = p[tv]
+                forward_table[k] = tv
+            elif v != k:
+                forward_table[k] = k
         return D
 
     def on_nodes_down(self, node_ids):
@@ -791,18 +788,14 @@ class CentralControlNode(LSRouteNode):
                                     p[start_node_id][key] = k
                                     D[start_node_id][key] = topo[k][key] + D[start_node_id][k]
                         break
-
             for k, v in p[start_node_id].items():
-                if v == start_node_id:
-                    tk = k
-                    last = v
-                    while tk != last:
-                        last = tk
-                        forward_table[start_node_id][tk] = k
-                        for key, val in p[start_node_id].items():
-                            if val == tk:
-                                tk = key
-                                break
+                if v != start_node_id:
+                    tv = v
+                    while tv in p[start_node_id] and p[start_node_id][tv] != start_node_id:
+                        tv = p[start_node_id][tv]
+                    forward_tabl[start_node_id]e[k] = tv
+                elif v != k:
+                    forward_table[start_node_id][k] = k
         print (D)
         return D
 
