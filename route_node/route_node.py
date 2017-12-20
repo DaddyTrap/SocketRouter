@@ -60,26 +60,37 @@ class BaseRouteNode:
 
         self.logger.info("LOGGER INITIALIZED!!!!")
 
-    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
-        # self.build_logger(name)
+    def change_neighbors_cost(self, obj):
+        self.forward_table = {}
+        self.cost_table = {}
+        self.id_to_addr = {}
+        self.neighbors = []
+        for k, v in obj['topo'].items():
+            node_id = int(k)
+            self.cost_table[node_id] = v['cost']
+            self.forward_table[node_id] = node_id
+            self.id_to_addr[node_id] = (v['real_ip'], v['real_port'])
+            self.neighbors.append(node_id)
+        self.cost_table[self.node_id] = 0
+        self.forward_table[self.node_id] = self.node_id
+        self.send_self_info()
+        self.send_route_req()
 
-        # self.name = name
+    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
         self.forward_table = {}
         self.cost_table = {}
         self.id_to_addr = {}
         self.neighbors = []
         self.send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # self.send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # self.recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.broadcast_seq_num = random.randint(0, sys.maxsize)
         self.data_obj_handler = obj_handler
+
         # called when [forward_table, cost_table] changed
         self.data_change_handler = data_change_handler
 
         self.running = False
         self.broadcast_seq_num = 0
-        # self.send_queue = queue.Queue()
         self.recved_id_seq_tuples = []
         self.down_check_table = {}
 
@@ -90,7 +101,6 @@ class BaseRouteNode:
                 obj = json.load(f)
 
         self.node_id = int(obj['node_id'])
-        # self.send_sock.bind((obj['ip'], obj['port']))
         self.recv_sock.bind((obj['ip'], obj['port']))
         for k, v in obj['topo'].items():
             node_id = int(k)
@@ -419,6 +429,9 @@ DST_ID {} {}
         # Should be override
         raise NotImplementedError
 
+    def send_self_info(self):
+        raise NotImplementedError
+
 class LSRouteNode(BaseRouteNode):
 
     BROADCAST_INFO_CD = 10
@@ -447,7 +460,7 @@ class LSRouteNode(BaseRouteNode):
         self.logger.debug("Got route_obj:\n{}".format(route_obj))
 
         if route_obj['data_type'] == BaseRouteNode.ROUTE_REQ:
-            self.broadcast_self_info()
+            self.send_self_info()
             return
         if route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
             self.logger.warn("Wrong data_type for this node")
@@ -490,7 +503,7 @@ class LSRouteNode(BaseRouteNode):
         else:
             self.logger.debug("Nothing changed.")
     
-    def broadcast_self_info(self):
+    def send_self_info(self):
         self_info = {}
         # only send neighbor info
         for k in self.cost_table:
@@ -506,7 +519,7 @@ class LSRouteNode(BaseRouteNode):
 
     def start(self):
         BaseRouteNode.start(self)
-        self.broadcast_self_info()
+        self.send_self_info()
 
     @staticmethod
     def ls_algo(source_node_id, topo, forward_table):
@@ -563,13 +576,13 @@ class LSRouteNode(BaseRouteNode):
                 del self.topo[node_id]
             if node_id in self.topo[self.node_id]:
                 del self.topo[self.node_id][node_id]
-        self.broadcast_self_info()
+        self.send_self_info()
 
     cur_count = 0
     def on_tick(self):
         if self.cur_count % self.BROADCAST_INFO_CD == 0:
             self.cur_count = 0
-            self.broadcast_self_info()
+            self.send_self_info()
         self.cur_count += 1
         
 class DVRouteNode(BaseRouteNode):
@@ -595,7 +608,7 @@ class DVRouteNode(BaseRouteNode):
     def route_obj_handler(self, route_obj):
         self.logger.debug("Got route_obj:\n{}".format(route_obj))
         if route_obj['data_type'] == BaseRouteNode.ROUTE_REQ:
-            self.send_new_cost_table()
+            self.send_self_info()
             return
         if route_obj['data_type'] != BaseRouteNode.ROUTE_DV:
             self.logger.warn("Wrong data_type for this node")
@@ -603,7 +616,7 @@ class DVRouteNode(BaseRouteNode):
         other_info = self.data_to_route_obj(route_obj['data'])
         changed = DVRouteNode.dv_algo(route_obj['src_id'], other_info, self.cost_table, self.forward_table)
         if changed:
-            self.send_new_cost_table()
+            self.send_self_info()
             self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
             self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
             
@@ -612,7 +625,7 @@ class DVRouteNode(BaseRouteNode):
         else:
             self.logger.debug("Nothing changed.")
 
-    def send_new_cost_table(self):
+    def send_self_info(self):
         # send new cost table
         packet = {
             "packet_type": BaseRouteNode.PACKET_ROUTE,
@@ -629,18 +642,18 @@ class DVRouteNode(BaseRouteNode):
             self.send(poison_reverse_packet, i)
 
     def on_nodes_down(self, node_ids):
-        self.send_new_cost_table()
+        self.send_self_info()
 
     def start(self):
         BaseRouteNode.start(self)
-        self.send_new_cost_table()
+        self.send_self_info()
 
     update_interval = 10
     cur_count = 0
     def on_tick(self):
         if self.cur_count % self.update_interval == 0:
             self.cur_count = 0
-            self.send_new_cost_table()
+            self.send_self_info()
         self.cur_count += 1
 
 class CentralControlNode(LSRouteNode):
@@ -661,7 +674,7 @@ class CentralControlNode(LSRouteNode):
         self.logger.debug("Got route_obj:\n{}".format(route_obj))
 
         if route_obj['data_type'] == BaseRouteNode.ROUTE_REQ:
-            self.broadcast_self_info()
+            self.send_self_info()
             return
         if route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
             self.logger.warn("Wrong data_type for this node")
