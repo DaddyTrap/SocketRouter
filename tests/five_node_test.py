@@ -128,6 +128,12 @@ def dynamic_test():
         obj = json.load(f)
     obj['topo']['1']['cost'] = 2
     nodes[2].change_neighbors_cost(obj)
+
+    with open('tests/five_node_test/node1.json') as f:
+        obj = json.load(f)
+    obj['topo']['3']['cost'] = 2
+    nodes[0].change_neighbors_cost(obj)
+    
     time.sleep(route_node.BaseRouteNode.BEAT_TIME * 1.5) # wait for the tables to be stable
     print("--- Cost Change Test: Finished ---\n")
 

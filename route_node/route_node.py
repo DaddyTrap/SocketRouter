@@ -65,12 +65,18 @@ class BaseRouteNode:
         self.cost_table = {}
         self.id_to_addr = {}
         self.neighbors = []
+        self.down_check_table = {}
         for k, v in obj['topo'].items():
             node_id = int(k)
             self.cost_table[node_id] = v['cost']
             self.forward_table[node_id] = node_id
             self.id_to_addr[node_id] = (v['real_ip'], v['real_port'])
             self.neighbors.append(node_id)
+            self.down_check_table[node_id] = {
+                "last_recved_time": time.time(),
+                "origin_cost": v['cost'],
+                "downed": False
+            }
         self.cost_table[self.node_id] = 0
         self.forward_table[self.node_id] = self.node_id
         self.send_self_info()
@@ -598,6 +604,37 @@ class LSRouteNode(BaseRouteNode):
             self.cur_count = 0
             self.send_self_info()
         self.cur_count += 1
+
+    def change_neighbors_cost(self, obj):
+        self.forward_table = {}
+        self.cost_table = {}
+        self.id_to_addr = {}
+        self.neighbors = []
+        self.down_check_table = {}
+        for k, v in obj['topo'].items():
+            node_id = int(k)
+            self.cost_table[node_id] = v['cost']
+            self.forward_table[node_id] = node_id
+            self.id_to_addr[node_id] = (v['real_ip'], v['real_port'])
+            self.neighbors.append(node_id)
+            self.down_check_table[node_id] = {
+                "last_recved_time": time.time(),
+                "origin_cost": v['cost'],
+                "downed": False
+            }
+        self.cost_table[self.node_id] = 0
+        self.forward_table[self.node_id] = self.node_id
+
+        topo = {}
+        for k, v in obj['topo'].items():
+            topo[int(k)] = v['cost']
+        self.topo = {
+            self.node_id: topo
+        }
+        self.topo[self.node_id][self.node_id] = 0
+
+        self.send_self_info()
+        self.send_route_req()
         
 class DVRouteNode(BaseRouteNode):
 
@@ -793,7 +830,7 @@ class CentralControlNode(LSRouteNode):
                     tv = v
                     while tv in p[start_node_id] and p[start_node_id][tv] != start_node_id:
                         tv = p[start_node_id][tv]
-                    forward_tabl[start_node_id]e[k] = tv
+                    forward_table[start_node_id][k] = tv
                 elif v != k:
                     forward_table[start_node_id][k] = k
         print (D)
