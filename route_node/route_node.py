@@ -589,6 +589,7 @@ class LSRouteNode(BaseRouteNode):
                 forward_table[k] = tv
             elif v != k:
                 forward_table[k] = k
+        forward_table[source_node_id] = source_node_id
         return D
 
     def on_nodes_down(self, node_ids):
@@ -639,9 +640,10 @@ class LSRouteNode(BaseRouteNode):
         self.send_route_req()
         
 class DVRouteNode(BaseRouteNode):
+    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
+        BaseRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
 
-    @staticmethod
-    def dv_algo(other_node_id, other_cost_table, source_cost_table, forward_table):
+    def dv_algo(self,other_node_id, other_cost_table, source_cost_table, forward_table):
         changeFlag = False
         for k,v in [i for i in forward_table.items()]:
             if v == other_node_id and k not in other_cost_table and k != other_node_id:
@@ -653,10 +655,8 @@ class DVRouteNode(BaseRouteNode):
                 source_cost_table[k] = source_cost_table[other_node_id] + other_cost_table[k]
                 forward_table[k] = other_node_id
                 changeFlag = True
+        forward_table[self.node_id] = self.node_id
         return changeFlag
-
-    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
-        BaseRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
 
     def route_obj_handler(self, route_obj):
         self.logger.debug("Got route_obj:\n{}".format(route_obj))
@@ -667,7 +667,7 @@ class DVRouteNode(BaseRouteNode):
             self.logger.warn("Wrong data_type for this node")
             return
         other_info = self.data_to_route_obj(route_obj['data'])
-        changed = DVRouteNode.dv_algo(route_obj['src_id'], other_info, self.cost_table, self.forward_table)
+        changed = self.dv_algo(route_obj['src_id'], other_info, self.cost_table, self.forward_table)
         if changed:
             self.send_self_info()
             self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
@@ -796,11 +796,12 @@ class CentralControlNode(LSRouteNode):
                 nodes.add(k)
         D = {}
         p = {}
+
         for start_node_id in nodes:
             if start_node_id in topo:
                 pass
             else:
-                break
+                continue
             D[start_node_id]={}
             p[start_node_id]={}
             forward_table[start_node_id] = {}
@@ -835,7 +836,7 @@ class CentralControlNode(LSRouteNode):
                     forward_table[start_node_id][k] = tv
                 elif v != k:
                     forward_table[start_node_id][k] = k
-        print (D)
+            forward_table[start_node_id][start_node_id] = start_node_id
         return D
 
 
