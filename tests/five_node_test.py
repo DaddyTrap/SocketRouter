@@ -77,6 +77,8 @@ def snapshot(dump_filename):
         dump_info += '[{} infos]\n'.format(node.name)
         dump_info += 'Cost Table:\n{}\n\n'.format(json.dumps(node.cost_table, sort_keys=True, indent=4))
         dump_info += 'Forward Table:\n{}\n\n'.format(json.dumps(node.forward_table, sort_keys=True, indent=4))
+        if isinstance(node, route_node.LSRouteNode):
+            dump_info += 'Topo:\n{}\n\n'.format(json.dumps(node.topo, sort_keys=True, indent=4))
         dump_info += '\n'
 
     with open(dump_filename, 'w') as f:
@@ -105,7 +107,7 @@ def simple_test():
 
     print("[Going to do Simple Test]")
 
-    time.sleep(60)
+    time.sleep(route_node.BaseRouteNode.BEAT_TIME * 3)
 
     stop()
 
@@ -118,7 +120,7 @@ def dynamic_test():
         time.sleep(0.5)
 
     print("[Going to do Dynamic Test]")
-    time.sleep(30) # wait for the tables to be stable
+    time.sleep(route_node.BaseRouteNode.BEAT_TIME * 2.5) # wait for the tables to be stable
 
     # test cost change
     print("\n--- Cost Change Test: Change node 3 cost ---")
@@ -126,16 +128,16 @@ def dynamic_test():
         obj = json.load(f)
     obj['topo']['1']['cost'] = 2
     nodes[2].change_neighbors_cost(obj)
-    time.sleep(30) # wait for the tables to be stable
+    time.sleep(route_node.BaseRouteNode.BEAT_TIME * 1.5) # wait for the tables to be stable
     print("--- Cost Change Test: Finished ---\n")
 
     snapshot('cost-change.dump.txt')
 
     # test down check
     # make node 2 down
-    print("\n--- Down Test: Stopped node 2 (Will cost 60 + 10 seconds in default to notice a node was down) ---")
+    print("\n--- Down Test: Stopped node 2 (Will cost {} seconds in default to notice a node was down) ---".format(route_node.BaseRouteNode.BEAT_TIME * 3))
     nodes[1].stop()
-    time.sleep(route_node.BaseRouteNode.BEAT_TIME * 2 + 10) # wait for the
+    time.sleep(route_node.BaseRouteNode.BEAT_TIME * 3) # wait for the tables to be stable
     print("--- Down Test: Finished ---\n")
 
     stop()
@@ -161,7 +163,7 @@ def send_something_test():
 
     print("[Going to do Send Something Test]")
 
-    time.sleep(15)
+    time.sleep(route_node.BaseRouteNode.BEAT_TIME * 1.5)
 
     png_packet = {
         'packet_type': route_node.BaseRouteNode.PACKET_DATA,
@@ -187,6 +189,7 @@ def send_something_test():
 
 def main():
     global nodes
+    route_node.BaseRouteNode.BEAT_TIME = 10
     test_type = ''
     if len(sys.argv) <= 1:
         print("One argument representing the node mode is needed.")

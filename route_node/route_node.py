@@ -492,9 +492,11 @@ class LSRouteNode(BaseRouteNode):
                         break   
 
             if topo_updated:
-                # print(old_info)
-                # print(new_info)
                 self.topo[route_obj['src_id']] = new_info
+                # for k, v in [i for i in self.forward_table.items()]:
+                #     if v == route_obj['src_id'] and not k in new_info:
+                #         del self.forward_table[k]
+
         else:
             self.topo[route_obj['src_id']] = new_info
             topo_updated = True
@@ -516,9 +518,12 @@ class LSRouteNode(BaseRouteNode):
     def send_self_info(self):
         self_info = {}
         # only send neighbor info
-        for k in self.cost_table:
-            if k in self.neighbors:
-                self_info[k] = self.cost_table[k]
+        # for k in self.cost_table:
+        #     if k in self.neighbors:
+        #         self_info[k] = self.cost_table[k]
+        for k, v in self.down_check_table.items():
+            if not v['downed']:
+                self_info[k] = v['origin_cost']
         data = BaseRouteNode.route_obj_to_data(self_info)
         packet = {
             "packet_type": BaseRouteNode.PACKET_ROUTE,
@@ -567,6 +572,7 @@ class LSRouteNode(BaseRouteNode):
                                 p[key] = k
                                 D[key] = topo[k][key] + D[k]
                     break
+        forward_table.clear()
         for k, v in p.items():
             if v == source_node_id:
                 tk = k
@@ -591,7 +597,7 @@ class LSRouteNode(BaseRouteNode):
 
     cur_count = 0
     def on_tick(self):
-        if self.cur_count % self.BROADCAST_INFO_CD == 0:
+        if self.cur_count % int(self.BEAT_TIME / 2) == 0:
             self.cur_count = 0
             self.send_self_info()
         self.cur_count += 1
@@ -659,10 +665,9 @@ class DVRouteNode(BaseRouteNode):
         BaseRouteNode.start(self)
         self.send_self_info()
 
-    update_interval = 10
     cur_count = 0
     def on_tick(self):
-        if self.cur_count % self.update_interval == 0:
+        if self.cur_count % int(self.BEAT_TIME / 2) == 0:
             self.cur_count = 0
             self.send_self_info()
         self.cur_count += 1
