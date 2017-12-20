@@ -338,8 +338,10 @@ DST_ID {} {}
                 down_nodes.append(k)
                 # modify table to make it `down`
                 self.down_check_table[k]['downed'] = True
-                del self.cost_table[k]
-                del self.forward_table[k]
+                if k in self.cost_table:
+                    del self.cost_table[k]
+                if k in self.forward_table:
+                    del self.forward_table[k]
                 for forward_table_k, forward_table_v in [i for i in self.forward_table.items()]:
                     if forward_table_v == k:
                         del self.forward_table[forward_table_k]
@@ -412,17 +414,17 @@ DST_ID {} {}
         self.logger.info("Going to send to {}:\n{}".format(dst_node_id, raw_data))
         if dst_node_id == -1:
             for node_id in self.neighbors:
-                # if not node_id in self.forward_table:
-                #     self.logger.warn("node_id: {} not reachable".format(node_id))
-                #     continue
+                if not node_id in self.forward_table:
+                    self.logger.warn("node_id: {} not reachable".format(node_id))
+                    continue
                     # raise Exception("node_id not reachable")
                 next_node_id = self.forward_table[node_id]
                 msg_tuple = (raw_data, self.id_to_addr[next_node_id])
                 self.send_sock.sendto(msg_tuple[0], msg_tuple[1])
         else:
-            # if not dst_node_id in self.forward_table:
-            #     self.logger.warn("node_id: {} not reachable".format(dst_node_id))
-            #     return
+            if not dst_node_id in self.forward_table:
+                self.logger.warn("node_id: {} not reachable".format(dst_node_id))
+                return
                 # raise Exception("node_id not reachable")
             next_node_id = self.forward_table[dst_node_id]
             msg_tuple = (raw_data, self.id_to_addr[next_node_id])
