@@ -154,8 +154,10 @@ class Ui_MainWindow(object):
             for k,v in node_instance.cost_table.items():
                 cText += 'cost %d to reach node %d\n' % (v,k)
             cost_table.setText(cText)
-            for k,v in node_instance.forward_table.items():
-                fText += 'reach node %d via node %d\n' % (v,k)
+            forward_table_copy = dict(node_instance.forward_table)
+            for k,v in forward_table_copy.items():
+                print(forward_table_copy)
+                fText += 'reach node %d via node %d\n' % (k,v)
             forward_table.setText(fText)
         # self.change_ui_lock.acquire()
         self.change_ui_thread_change = self.WrapperThread(self.change_ui_signal_change, _change, self)

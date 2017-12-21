@@ -30,9 +30,9 @@ class Ui_MainWindow(object):
         MainWindow.resize(482, 635)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
-        self.SendData = QtWidgets.QTextEdit(self.centralwidget)
-        self.SendData.setGeometry(QtCore.QRect(20, 190, 171, 31))
-        self.SendData.setObjectName("SendData")
+        self.Data = QtWidgets.QTextEdit(self.centralwidget)
+        self.Data.setGeometry(QtCore.QRect(20, 190, 171, 31))
+        self.Data.setObjectName("Data")
         self.TargetAddress = QtWidgets.QTextEdit(self.centralwidget)
         self.TargetAddress.setGeometry(QtCore.QRect(280, 190, 171, 31))
         self.TargetAddress.setObjectName("TargetAddress")
@@ -89,12 +89,15 @@ class Ui_MainWindow(object):
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
         self.menubar.addAction(self.menuRouter.menuAction())
-
+        self.node = None
         self.retranslateUi(MainWindow)
-        self.Send.clicked.connect(MainWindow.Send_udp)
+        self.Send.clicked.connect(MainWindow.SendData)
         self.LsAlgoBtn.clicked.connect(MainWindow.CreateControl)
         self.DvAlgoBtn.clicked.connect(MainWindow.CreateNormal)
+        self.StopNode.clicked.connect(self.NodeStop)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        self.StopNode.setEnabled(False)
+        self.Send.setEnabled(False)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
@@ -134,7 +137,7 @@ class Ui_MainWindow(object):
 
     def change(self,node_instance):
         # print("in change")
-        cost_table = self.CostTable
+        # cost_table = self.CostTable
         forward_table = self.ForwardTable
         @QtCore.pyqtSlot()
         def _change():
@@ -145,8 +148,11 @@ class Ui_MainWindow(object):
             #     cText += 'cost %d to reach node %d\n' % (v,k)
             # cost_table.setText(cText)
             for k,v in node_instance.forward_table.items():
-                fText += 'reach node %d via node %d\n' % (v,k)
+                fText += 'reach node %d via node %d\n' % (k,v)
             forward_table.setText(fText)
+            if hasattr(node_instance, "central"):
+                if node_instance.central != None:
+                    self.CentralNodeId.setText(str(node_instance.central))
         # self.change_ui_lock.acquire()
         self.change_ui_thread_change = self.WrapperThread(self.change_ui_signal_change, _change, self)
         self.change_ui_signal_change.connect(_change)
@@ -183,6 +189,7 @@ class Ui_MainWindow(object):
         self.UIChangeOnStart()
         self.node = route_node.CentralControlNode(initinfo, obj_handler=self.handler, data_change_handler=self.change)
         self.NodeId.setText(str(self.node.node_id))
+        self.CentralNodeId.setText(str(self.node.node_id))
         self.node.start()
 
 

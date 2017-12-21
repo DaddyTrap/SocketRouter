@@ -843,6 +843,7 @@ class CentralControlNode(LSRouteNode):
 class CentralNormalNode(LSRouteNode):
     def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
         LSRouteNode.__init__(self, node_file, obj_handler, data_change_handler, name, *args, **kwargs)
+        self.central = None
     
     def data_to_cls_route(self,data):
         ret = {}
@@ -868,7 +869,7 @@ class CentralNormalNode(LSRouteNode):
 
     def route_obj_handler(self,route_obj):
         if route_obj['data_type'] == BaseRouteNode.ROUTE_C_LS:
-
+            self.central = route_obj['src_id']
             new_forward = self.data_to_cls_route(route_obj['data'])
             if self.node_id in new_forward:
                 self.forward_table = new_forward[self.node_id]
