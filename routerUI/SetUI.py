@@ -5,7 +5,7 @@ import sys
 from PyQt5.QtWidgets import QApplication , QMainWindow
 
 import CentralUI
-import routerui
+import RouterUI
  
 if __name__ == '__main__':
 
