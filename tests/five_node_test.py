@@ -51,15 +51,15 @@ def gen_node(mode, node_filename):
                 )
     return ret
 
-def gen_nodes(mode):
+def gen_nodes(mode, test_base_dir):
     ret = []
     for i in range(1, 6):
         if mode == "CLS":
             if i == 5:
-                node = gen_node(mode+"C", 'tests/five_node_test/node{}.json'.format(i))
+                node = gen_node(mode+"C", 'tests/{}/node{}.json'.format(test_base_dir, i))
                 ret.append(node)
                 continue
-        node = gen_node(mode, 'tests/five_node_test/node{}.json'.format(i))
+        node = gen_node(mode, 'tests/{}/node{}.json'.format(test_base_dir, i))
         if node == None:
             print("Seems that mode `{}` does not exist".format(mode))
             return None
@@ -67,6 +67,7 @@ def gen_nodes(mode):
     return ret
 
 nodes = []
+base_dir = 'five_node_test_0'
 
 def snapshot(dump_filename):
     global nodes
@@ -124,12 +125,12 @@ def dynamic_test():
 
     # test cost change
     print("\n--- Cost Change Test: Change node 3 cost ---")
-    with open('tests/five_node_test/node3.json') as f:
+    with open('tests/{}/node3.json'.format(base_dir)) as f:
         obj = json.load(f)
     obj['topo']['1']['cost'] = 2
     nodes[2].change_neighbors_cost(obj)
 
-    with open('tests/five_node_test/node1.json') as f:
+    with open('tests/{}/node1.json'.format(base_dir)) as f:
         obj = json.load(f)
     obj['topo']['3']['cost'] = 2
     nodes[0].change_neighbors_cost(obj)
@@ -202,9 +203,13 @@ def main():
         sys.exit(0)
     if len(sys.argv) > 2:
         test_type = sys.argv[2]
+    global base_dir
+    base_dir = 'five_node_test_0'
+    if len(sys.argv) > 3:
+        base_dir = sys.argv[3]
 
     mode = sys.argv[1]
-    nodes = gen_nodes(mode)
+    nodes = gen_nodes(mode, base_dir)
     signal.signal(signal.SIGINT, stop)
     if not nodes:
         print("Generating nodes error")
