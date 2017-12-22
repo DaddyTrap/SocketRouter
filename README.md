@@ -89,6 +89,18 @@ $NDOE_ID_1 $LINK_COST_1
 ...
 ```
 
+#### CLS模式路由信息
+
+向非控制节点发送转发表
+```plain
+SRC_ID 0
+DST_ID -1  132
+ROUTE CLS
+$NODE_ID_0 $TO_NODE_ID_1 $VIA_NODE_ID_2
+$NODE_ID_0 $TO_NODE_ID_2 $VIA_NODE_ID_3
+...
+```
+
 #### 请求路由信息
 
 向邻居发送路由信息请求
