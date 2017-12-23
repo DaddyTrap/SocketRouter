@@ -9,9 +9,9 @@
       "real_port": 8000,
       "cost": 10
     },
-    "3": {
+    "2": {
       "real_ip": "127.0.0.1",
-      "real_port": 8002,
+      "real_port": 8001,
       "cost": 5
     },
     "5": {

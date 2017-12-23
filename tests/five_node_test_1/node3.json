@@ -7,22 +7,17 @@
     "1": {
       "real_ip": "127.0.0.1",
       "real_port": 8000,
-      "cost": 0
+      "cost": 20
     },
     "2": {
       "real_ip": "127.0.0.1",
       "real_port": 8001,
       "cost": 15
     },
-    "4": {
-      "real_ip": "127.0.0.1",
-      "real_port": 8003,
-      "cost": 5
-    },
     "5": {
       "real_ip": "127.0.0.1",
       "real_port": 8004,
-      "cost": 3
+      "cost": 10
     }
   }
 }
