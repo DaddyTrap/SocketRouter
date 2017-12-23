@@ -246,6 +246,7 @@ DST_ID {} {}
                 self.cost_table[src_id] = self.down_check_table[src_id]['origin_cost']
                 self.forward_table[src_id] = src_id
                 self.neighbors.append(src_id)
+                self.on_node_up(src_id)
                 
                 # if isinstance(self.data_change_handler, collections.Callable):
                 #     self.data_change_handler(self)
@@ -450,6 +451,9 @@ DST_ID {} {}
     def send_self_info(self):
         raise NotImplementedError
 
+    def on_node_up(self, node_id):
+        self.send_self_info()
+
 class LSRouteNode(BaseRouteNode):
 
     BROADCAST_INFO_CD = 10
@@ -638,6 +642,10 @@ class LSRouteNode(BaseRouteNode):
 
         self.send_self_info()
         self.send_route_req()
+
+    def on_node_up(self, node_id):
+        self.topo[self.node_id][node_id] = self.down_check_table[node_id]['origin_cost']
+        self.send_self_info()
         
 class DVRouteNode(BaseRouteNode):
     def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
@@ -647,7 +655,10 @@ class DVRouteNode(BaseRouteNode):
         changeFlag = False
         for k,v in [i for i in forward_table.items()]:
             if v == other_node_id and k not in other_cost_table and k != other_node_id:
-                source_cost_table.pop(k)
+                if k in self.down_check_table and not self.down_check_table[k]['downed']:
+                    source_cost_table[k] = self.down_check_table[k]['origin_cost']
+                else:
+                    source_cost_table.pop(k)
                 forward_table.pop(k)
 
         for k,v in other_cost_table.items():
