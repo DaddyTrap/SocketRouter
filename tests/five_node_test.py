@@ -123,6 +123,8 @@ def dynamic_test():
     print("[Going to do Dynamic Test]")
     time.sleep(route_node.BaseRouteNode.BEAT_TIME * 2.5) # wait for the tables to be stable
 
+    snapshot('first-stable.dump.txt')
+
     # test cost change
     print("\n--- Cost Change Test: Change node 3 cost ---")
     with open('tests/{}/node3.json'.format(base_dir)) as f:

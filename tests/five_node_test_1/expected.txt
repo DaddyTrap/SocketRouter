@@ -3,9 +3,9 @@ Origin:
 {
     cost_table : {
         1 : 0,
-        2 : 0,
-        3 : 13,
-        4 : 5,
+        2 : 1,
+        3 : 14,
+        4 : 6,
         5 : 3
     },
     forward_table: {
@@ -20,7 +20,7 @@ Origin:
 // for node 2
 {
     cost_table : {
-        1 : 0,
+        1 : 1,
         2 : 0,
         3 : 13,
         4 : 5,
@@ -38,7 +38,7 @@ Origin:
 // for node 3
 {
     cost_table : {
-        1 : 13,
+        1 : 14,
         2 : 13,
         3 : 0,
         4 : 15,
@@ -57,7 +57,7 @@ Origin:
 // for node 4
 {
     cost_table : {
-        1 : 5,
+        1 : 6,
         2 : 5,
         3 : 15,
         4 : 0,
@@ -75,7 +75,7 @@ Origin:
 // for node 5
 {
     cost_table : {
-        1 : 3,
+        1 : 4,
         2 : 3,
         3 : 10,
         4 : 5,
@@ -96,10 +96,10 @@ cost from 3 to 1 set to 2:
 {
     cost_table : {
         1 : 0,
-        2 : 0,
+        2 : 1,
         3 : 2,
-        4 : 5,
-        5 : 3
+        4 : 6,
+        5 : 4
     },
     forward_table: {
         1 : 1,
@@ -113,9 +113,9 @@ cost from 3 to 1 set to 2:
 // for node 2
 {
     cost_table : {
-        1 : 0,
+        1 : 1,
         2 : 0,
-        3 : 2,
+        3 : 3,
         4 : 5,
         5 : 3
     },
@@ -132,10 +132,10 @@ cost from 3 to 1 set to 2:
 {
     cost_table : {
         1 : 2,
-        2 : 2,
+        2 : 3,
         3 : 0,
-        4 : 7,
-        5 : 5
+        4 : 8,
+        5 : 6
     },
     forward_table: {
         1 : 1,
@@ -149,9 +149,9 @@ cost from 3 to 1 set to 2:
 // for node 4
 {
     cost_table : {
-        1 : 5,
+        1 : 6,
         2 : 5,
-        3 : 7,
+        3 : 8,
         4 : 0,
         5 : 5
     },
@@ -167,9 +167,9 @@ cost from 3 to 1 set to 2:
 // for node 5
 {
     cost_table : {
-        1 : 3,
+        1 : 4,
         2 : 3,
-        3 : 5,
+        3 : 6,
         4 : 5,
         5 : 0
     },

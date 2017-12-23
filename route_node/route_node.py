@@ -345,7 +345,12 @@ DST_ID {} {}
                     del self.forward_table[k]
                 for forward_table_k, forward_table_v in [i for i in self.forward_table.items()]:
                     if forward_table_v == k:
-                        del self.forward_table[forward_table_k]
+                        if forward_table_k in self.down_check_table:
+                            self.forward_table[forward_table_k] = forward_table_k
+                            self.cost_table[forward_table_k] = self.down_check_table[forward_table_k]['origin_cost']
+                        else:
+                            del self.forward_table[forward_table_k]
+                            del self.cost_table[forward_table_k]
                 self.neighbors.remove(k)
                 something_down = True
         
@@ -657,14 +662,23 @@ class DVRouteNode(BaseRouteNode):
             if v == other_node_id and k not in other_cost_table and k != other_node_id:
                 if k in self.down_check_table and not self.down_check_table[k]['downed']:
                     source_cost_table[k] = self.down_check_table[k]['origin_cost']
+                    forward_table[k] = k
                 else:
                     source_cost_table.pop(k)
-                forward_table.pop(k)
+                    forward_table.pop(k)
+                changeFlag = True
+            if v == other_node_id and k in other_cost_table and k != other_node_id and k in source_cost_table:
+                if other_cost_table[k]+source_cost_table[other_node_id] != source_cost_table[k]:
+                    source_cost_table[k] = other_cost_table[k]+source_cost_table[other_node_id]
+                    changeFlag = True
 
         for k,v in other_cost_table.items():
             if k not in source_cost_table or source_cost_table[k] > source_cost_table[other_node_id] + other_cost_table[k]:
                 source_cost_table[k] = source_cost_table[other_node_id] + other_cost_table[k]
-                forward_table[k] = other_node_id
+                if other_node_id in forward_table:
+                    forward_table[k] = forward_table[other_node_id]
+                else:
+                    forward_table[k] = other_node_id
                 changeFlag = True
         forward_table[self.node_id] = self.node_id
         return changeFlag
