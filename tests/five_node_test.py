@@ -93,7 +93,7 @@ def stop(sig_num=signal.SIGINT, frame=None):
     for node in nodes:
         node.stop()
 
-    snapshot('test_info.dump.txt')
+    snapshot('stop.dump.txt')
 
     del nodes
     sys.exit(0)
@@ -111,6 +111,8 @@ def simple_test():
     time.sleep(route_node.BaseRouteNode.BEAT_TIME * 3)
 
     stop()
+
+    snapshot('simple-test.dump.txt')
 
 def dynamic_test():
     global nodes
@@ -150,6 +152,8 @@ def dynamic_test():
     print("--- Down Test: Finished ---\n")
 
     stop()
+
+    snapshot('node-down.dump.txt')
 
 def send_something_test():
     global nodes
