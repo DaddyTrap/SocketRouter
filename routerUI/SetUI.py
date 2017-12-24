@@ -18,7 +18,7 @@ if __name__ == '__main__':
     mode = sys.argv[1]
 
 
-    if mode == "CSL":
+    if mode == "CLS":
         class CoperQt(QMainWindow,CentralUI.Ui_MainWindow):#创建一个Qt对象
         #这里的第一个变量是你该窗口的类型，第二个是该窗口对象。
         #这里是主窗口类型。所以设置成当QtWidgets.QMainWindow。
@@ -29,13 +29,13 @@ if __name__ == '__main__':
                 self.setupUi(self)  #配置主界面对象
 
     else:
-        class CoperQt(QMainWindow,routerui.Ui_MainWindow):#创建一个Qt对象
+        class CoperQt(QMainWindow,RouterUI.Ui_MainWindow):#创建一个Qt对象
         #这里的第一个变量是你该窗口的类型，第二个是该窗口对象。
         #这里是主窗口类型。所以设置成当QtWidgets.QMainWindow。
         #你的窗口是一个会话框时你需要设置成:QtWidgets.QDialog
             def __init__(self):
                 QMainWindow.__init__(self)  # 创建主界面对象
-                routerui.Ui_MainWindow.__init__(self)#主界面对象初始化
+                RouterUI.Ui_MainWindow.__init__(self)#主界面对象初始化
                 self.setupUi(self)  #配置主界面对象
 
     app = QApplication(sys.argv)

@@ -4,3 +4,6 @@ __pycache__/
 test_dump_info.txt
 /*.png
 *.dump.txt
+*.spec
+build/
+dist/

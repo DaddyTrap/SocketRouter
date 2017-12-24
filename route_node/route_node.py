@@ -82,7 +82,7 @@ class BaseRouteNode:
         self.send_self_info()
         self.send_route_req()
 
-    def __init__(self, node_file, obj_handler, data_change_handler, name='RouteNode', *args, **kwargs):
+    def __init__(self, node_file, obj_handler, data_change_handler=None, name='RouteNode', *args, **kwargs):
         self.forward_table = {}
         self.cost_table = {}
         self.id_to_addr = {}
