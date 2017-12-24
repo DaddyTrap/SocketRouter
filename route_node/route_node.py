@@ -765,7 +765,7 @@ class CentralControlNode(LSRouteNode):
             self.logger.debug(old_info)
 
             if set(old_info.keys()) != set(new_info.keys()):
-                topo_updated = False
+                topo_updated = True
             else:
                 topo_updated = False
                 for k, v in old_info.items():
@@ -854,7 +854,7 @@ class CentralControlNode(LSRouteNode):
                                     p[start_node_id][key] = k
                                     D[start_node_id][key] = topo[k][key] + D[start_node_id][k]
                         break
-            forward_table[start_node_id].clear()
+
             for k, v in p[start_node_id].items():
                 if v != start_node_id:
                     tv = v
@@ -904,52 +904,6 @@ class CentralNormalNode(LSRouteNode):
                 if isinstance(self.data_change_handler, collections.Callable):
                     self.data_change_handler(self)
             return
-        else:
-            if route_obj['data_type'] == BaseRouteNode.ROUTE_REQ:
-                self.send_self_info()
-                return
-            if route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
-                self.logger.warn("Wrong data_type for this node")
-                return
-            new_info = self.data_to_route_obj(route_obj['data'])
-
-            topo_updated = False
-            if route_obj['src_id'] in self.topo:
-                old_info = self.topo[route_obj['src_id']]
-                self.logger.debug(old_info)
-
-                if set(old_info.keys()) != set(new_info.keys()):
-                    topo_updated = True
-                else:
-                    topo_updated = False
-                    for k, v in old_info.items():
-                        if old_info[k] != new_info[k]:
-                            topo_updated = True
-                            break   
-
-                if topo_updated:
-                    self.topo[route_obj['src_id']] = new_info
-                    # for k, v in [i for i in self.forward_table.items()]:
-                    #     if v == route_obj['src_id'] and not k in new_info:
-                    #         del self.forward_table[k]
-
-            else:
-                self.topo[route_obj['src_id']] = new_info
-                topo_updated = True
-
-            # broadcast self info
-            # if time.time() - self.last_broadcast_time >= LSRouteNode.BROADCAST_INFO_CD:
-            #     self.broadcast_self_info()
-
-            if topo_updated:
-                self.cost_table = LSRouteNode.ls_algo(self.node_id, self.topo, self.forward_table)
-                
-                if isinstance(self.data_change_handler, collections.Callable):
-                    self.data_change_handler(self)
-                self.logger.debug("cost_table changed:\n{}".format(self.cost_table))
-                self.logger.debug("forward_table changed:\n{}".format(self.forward_table))
-            else:
-                self.logger.debug("Nothing changed.")
         
             # elif route_obj['data_type'] != BaseRouteNode.ROUTE_LS:
             #     self.logger.warn("Wrong data_type for this node")

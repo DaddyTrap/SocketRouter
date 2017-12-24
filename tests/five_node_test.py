@@ -151,9 +151,9 @@ def dynamic_test():
     time.sleep(route_node.BaseRouteNode.BEAT_TIME * 3) # wait for the tables to be stable
     print("--- Down Test: Finished ---\n")
 
-    stop()
-
     snapshot('node-down.dump.txt')
+    
+    stop()
 
 def send_something_test():
     global nodes
